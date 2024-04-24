@@ -1,4 +1,5 @@
 {
+    "autoDocstring.docstringFormat": "sphinx",
     "editor.formatOnSave": true,
     "editor.formatOnPaste": true,
     "files.trimTrailingWhitespace": true,
