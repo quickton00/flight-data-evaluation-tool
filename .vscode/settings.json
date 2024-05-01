@@ -2,6 +2,9 @@
     "autoDocstring.docstringFormat": "sphinx",
     "editor.formatOnSave": true,
     "editor.formatOnPaste": true,
+    "editor.rulers": [
+        120
+    ],
     "files.trimTrailingWhitespace": true,
     "files.autoSave": "onFocusChange",
     "git.autofetch": true,
