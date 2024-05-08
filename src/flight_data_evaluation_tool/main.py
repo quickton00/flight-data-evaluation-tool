@@ -1,6 +1,7 @@
 import math
 import matplotlib.pyplot as plt
 import pandas as pd
+from evaluation import evaluate_flight_phases
 
 
 def plot_values(x_values: pd.DataFrame, y_values: pd.DataFrame, title: str, x_label: str, y_label: str, plot_names=None, phases = []):
@@ -66,6 +67,7 @@ def calculate_approach_phases(data_frame: pd.DataFrame) -> list:
 
     # Alignment -> Approach phase
     try:
+        # strict criteria
         phases.append(data_frame[(data_frame['Lateral Offset'] < data_frame['Approach Cone']*0.1) &         # lateral offset max. 10% from x-Axes relative to approach cone diameter
                                  (data_frame['Rot Angle.x [deg]'].abs() <= 1.5) &                           # angular pos within max angular deviation for docking
                                  (data_frame['Rot Angle.y [deg]'].abs() <= 1.5) &                           # angular pos within max angular deviation for docking
@@ -75,7 +77,14 @@ def calculate_approach_phases(data_frame: pd.DataFrame) -> list:
                                  (data_frame['SimTime'] > phases[-1])].iloc[0]['SimTime'])                  # alignment has to be after checkout
 
     except IndexError:
-        phases.append(None)
+        # soft criteria
+        try:
+            phases.append(data_frame[(data_frame['COG Vel.x [m]'] <= -0.1) &                                    # alignment phase ends with acceleration towards station
+                                     (data_frame['COG Vel.x [m]'] > data_frame['COG Vel.x [m]'].shift(-1)) &    # velocity towards station has to increase
+                                     (data_frame['SimTime'] > phases[-1])].iloc[0]['SimTime'])                  # alignment has to be after checkout
+            print('soft criteria between Alignment -> Approach phase is used')
+        except IndexError:
+            phases.append(None)
 
     # Approach -> Final Approach phase
     try:
@@ -142,7 +151,8 @@ def _calculate_backup_approach_phases(data_frame: pd.DataFrame, phases: list) ->
 if __name__ == "__main__":
     # Open the log file
     #with open(r"C:\Users\Admin\Downloads\SoyuzData\Data Flights\1st week ITA\FDL-2022-11-10-12-56-04_15Dima_ITA_0000.log", 'r') as file:
-    with open(r"C:\Users\Admin\Downloads\SoyuzData\Data Flights\3rd week ITB\FDL-2022-11-24-14-10-48_15Dima_ITB_0000.log", 'r', encoding='utf-8') as file:
+    #with open(r"C:\Users\Admin\Downloads\SoyuzData\Data Flights\3rd week ITB\FDL-2022-11-24-14-10-48_15Dima_ITB_0000.log", 'r', encoding='utf-8') as file:
+    with open(r"C:\Users\Admin\Desktop\flight_data\FDL-2024-05-08-08-22-26_Anton_FT2-B001b-Anton_0000.log", 'r', encoding='utf-8') as file:
 
         lines = file.readlines()
 
@@ -153,6 +163,7 @@ if __name__ == "__main__":
             if line.startswith("#"):
                 continue
             if line.startswith('SimTime'):
+                line = line.replace('MFDRightMyROT.m11', 'MFDRight; MyROT.m11') # handle bug in logger
                 columns = map(str.strip, line.split(';'))
                 columns = filter(None, columns)
                 continue
@@ -186,6 +197,9 @@ if __name__ == "__main__":
     # calculate diff flight phases
 
     phases = calculate_approach_phases(data_frame)
+
+
+    evaluate_flight_phases(data_frame, phases)
 
 
     # plot translational offset (Port to Port)
