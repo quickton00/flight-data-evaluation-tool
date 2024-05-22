@@ -230,4 +230,5 @@ columns:
   - PitchRateAvg_FA
   - PitchRateRms_FA
   - PitchRateAvg_Total
+  - PitchRateRms_Total
   - Fuel_on_Error

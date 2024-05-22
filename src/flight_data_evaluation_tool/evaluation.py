@@ -47,14 +47,15 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
     # calculation for "{controller}{coordinate}_{phase}"
     for controller in ["THC", "RHC"]:
         for coordinate in ["x", "y", "z"]:
-            filtered_flight_data = flight_data[
-                (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
-                & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
-            ]
-
             results[f"{controller}{coordinate}_{phase}"] = (
-                (filtered_flight_data[f"{controller}.{coordinate}"] != 0)
-                & (filtered_flight_data[f"{controller}.{coordinate}"].shift(periods=1) == 0)
+                (
+                    (flight_data[f"{controller}.{coordinate}"] != 0)
+                    & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
+                )
+                & (
+                    (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+                    & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+                )
             ).sum()
 
     # Calculation for "THC{coordinate}AvgTime_{phase}"
@@ -70,26 +71,27 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             "RHC": f"Rot Angle.{coordinate} [deg]",
         }.items():
             if not (controller == "THC" and coordinate == "x"):
-                filtered_flight_data = flight_data[
-                    (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
-                    & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
-                ]
-
-                flight_errors = filtered_flight_data[
+                flight_errors = flight_data[
                     (
-                        (filtered_flight_data[value_name] == 0)
-                        & (filtered_flight_data[f"{controller}.{coordinate}"] != 0)
-                        & (filtered_flight_data[f"{controller}.{coordinate}"].shift(periods=1) == 0)
+                        (
+                            (flight_data[value_name] == 0)
+                            & (flight_data[f"{controller}.{coordinate}"] != 0)
+                            & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
+                        )
+                        | (
+                            (flight_data[value_name] > 0)
+                            & (flight_data[f"{controller}.{coordinate}"] > 0)
+                            & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
+                        )
+                        | (
+                            (flight_data[value_name] < 0)
+                            & (flight_data[f"{controller}.{coordinate}"] < 0)
+                            & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
+                        )
                     )
-                    | (
-                        (filtered_flight_data[value_name] > 0)
-                        & (filtered_flight_data[f"{controller}.{coordinate}"] > 0)
-                        & (filtered_flight_data[f"{controller}.{coordinate}"].shift(periods=1) == 0)
-                    )
-                    | (
-                        (filtered_flight_data[value_name] < 0)
-                        & (filtered_flight_data[f"{controller}.{coordinate}"] < 0)
-                        & (filtered_flight_data[f"{controller}.{coordinate}"].shift(periods=1) == 0)
+                    & (
+                        (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+                        & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
                     )
                 ]
 
@@ -107,6 +109,91 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                 results[f"{controller}{coordinate}IndErr_{phase}"] = len(
                     flight_errors[flight_errors[other_controller_axis].any(axis=1)]
                 )
+
+    # calculation for "CombJoy_{phase}"
+    results[f"CombJoy_{phase}"] = (
+        (
+            (
+                flight_data[["THC.x", "THC.y", "THC.z"]].any(axis=1)
+                & flight_data[["RHC.x", "RHC.y", "RHC.z"]].any(axis=1)
+            )
+            & (
+                (flight_data[["THC.x", "THC.y", "THC.z"]].shift(periods=1, fill_value=0) == 0).all(axis=1)
+                | (flight_data[["RHC.x", "RHC.y", "RHC.z"]].shift(periods=1, fill_value=0) == 0).all(axis=1)
+            )
+        )
+        & (
+            (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+            & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+        )
+    ).sum()
+
+    # calculation for "CombJoyTime_{phase}"
+    # todo
+
+    # calculation for "CombJoy{controller}yz_{phase}"
+    for controller in ["THC", "RHC"]:
+        results[f"CombJoy{controller}yz_{phase}"] = (
+            (
+                ((flight_data[f"{controller}.y"] != 0) & (flight_data[f"{controller}.z"] != 0))
+                & (
+                    (flight_data[f"{controller}.y"].shift(periods=1, fill_value=0) == 0)
+                    | (flight_data[f"{controller}.z"].shift(periods=1, fill_value=0) == 0)
+                )
+            )
+            & (
+                (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+                & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+            )
+        ).sum()
+
+    # calculation for "CombJoy{controller}yzTime_{phase}"
+    # todo
+
+    # calculation for "CombJoy{controller}xyz_{phase}"
+    for controller in ["THC", "RHC"]:
+        results[f"CombJoy{controller}xyz_{phase}"] = (
+            (
+                (
+                    flight_data[[f"{controller}.y", f"{controller}.z"]].any(axis=1)
+                    & (flight_data[f"{controller}.x"] != 0)
+                )
+                & (
+                    (flight_data[f"{controller}.x"].shift(periods=1, fill_value=0) == 0)
+                    | (flight_data[[f"{controller}.y", f"{controller}.z"]].shift(periods=1, fill_value=0) == 0).all(
+                        axis=1
+                    )
+                )
+            )
+            & (
+                (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+                & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+            )
+        ).sum()
+
+    # calculation for "CombJoy{controller}yzTime_{phase}"
+    # todo
+
+    # calculation for Average and rms values
+    # ToDo: LatVel
+    for result_name, column_name in {
+        "LatOff": "Lateral Offset",
+        "ApprVel": "COG Vel.x [m]",
+        "Roll": "Rot Angle.x [deg]",
+        "Yaw": "Rot Angle.y [deg]",
+        "Pitch": "Rot Angle.z [deg]",
+        "RollRate": "Rot. Rate.x [deg/s]",
+        "YawRate": "Rot. Rate.y [deg/s]",
+        "PitchRate": "Rot. Rate.Z [deg/s]",
+    }.items():
+        filtered_flight_data = flight_data[
+            (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+            & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+        ]
+
+        results[f"{result_name}Avg_{phase}"] = filtered_flight_data[column_name].mean()
+
+        results[f"{result_name}Rms_{phase}"] = (filtered_flight_data[column_name] ** 2).mean() ** 0.5
 
 
 def evaluate_flight_phases(flight_data, flight_phase_timestamps):
@@ -133,7 +220,7 @@ def evaluate_flight_phases(flight_data, flight_phase_timestamps):
     results["OutOfCone_Align"]  # ToDo, Function maybe good?
     results["OutOfCone_Appr"]  # ToDo
     results["OutOfCone_FA"]  # ToDo
-    results["NoVisTime_Total"]
+    results["NoVisTime_Total"]  # ToDo
 
     print(results.isna().sum(axis=1))
 
