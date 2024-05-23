@@ -22,6 +22,9 @@ columns:
   - LatOffsetAtStart_Appr
   - LatOffsetAtStart_FA
   - LatOffsetAt_Dock
+  - NoVisTime_Align
+  - NoVisTime_Appr
+  - NoVisTime_FA
   - NoVisTime_Total
   - THCx_Align
   - THCxAvgTime_Align

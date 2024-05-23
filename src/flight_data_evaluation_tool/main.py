@@ -1,7 +1,7 @@
 import math
 import matplotlib.pyplot as plt
 import pandas as pd
-from evaluation import evaluate_flight_phases
+from evaluation import create_dataframe_template_from_yaml, evaluate_flight_phases
 
 
 def plot_values(
@@ -176,20 +176,32 @@ def _calculate_backup_approach_phases(data_frame: pd.DataFrame, phases: list) ->
 if __name__ == "__main__":
     # Open the log file
     # with open(r"C:\Users\Admin\Downloads\SoyuzData\Data Flights\1st week ITA\FDL-2022-11-10-12-56-04_15Dima_ITA_0000.log", 'r') as file:
-    # with open(r"C:\Users\Admin\Desktop\flight_data\FDL-2024-05-15-07-07-23_Anton_B004FT-FT2-Anton-15_0000.log", "r", encoding="utf-8") as file:
     with open(
-        r"C:\Users\Admin\Desktop\flight_data\FDL-2024-05-08-08-22-26_Anton_FT2-B001b-Anton_0000.log",
+        r"C:\Users\Admin\Desktop\flight_data_test\FDL-2024-05-15-07-07-23_Anton_B004FT-FT2-Anton-15_0000 - myTool.log",
         "r",
         encoding="utf-8",
     ) as file:
+        # with open(r"C:\Users\Admin\Desktop\flight_data\FDL-2024-05-08-08-22-26_Anton_FT2-B001b-Anton_0000.log","r",encoding="utf-8",) as file:
 
         lines = file.readlines()
 
         data = []
+        results = create_dataframe_template_from_yaml()
 
         # Iterate over each line in the file
         for line in lines:
             if line.startswith("#"):
+                line = line.strip("#").strip()
+                if line.startswith("Logger Version:"):
+                    results["Logger Version"] = line.split(":")[1].strip()
+                elif line.startswith("SESSION_ID:"):
+                    results["Session ID"] = line.split(":")[1].strip()
+                elif line.startswith("PILOT:"):
+                    results["Pilot"] = line.split(":")[1].strip()
+                elif line.startswith("TIME:"):
+                    results["Date"] = line.split(":")[1].strip().split(" ")[0].replace("-", ".")
+                elif line.startswith("SCENARIO:"):
+                    results["Scenario"] = line.split(":")[1].strip()
                 continue
             if line.startswith("SimTime"):
                 line = line.replace("MFDRightMyROT.m11", "MFDRight; MyROT.m11")  # handle bug in logger
@@ -204,6 +216,11 @@ if __name__ == "__main__":
             data.append(values)
 
     data_frame = pd.DataFrame(data, columns=columns)
+
+    # coordinate system transformation from OrbVLCS to IssTPLCS
+    data_frame = data_frame.rename(columns={"THC.x": "THC.z", "THC.z": "THC.x", "RHC.x": "RHC.z", "RHC.z": "RHC.x"})
+    data_frame["THC.x"] = data_frame["THC.x"] * -1
+    data_frame["THC.z"] = data_frame["THC.z"] * -1
 
     # calculate additional value sets
     # lateral offset and velocity off COG Position from x-Axis
@@ -227,7 +244,7 @@ if __name__ == "__main__":
 
     phases = calculate_approach_phases(data_frame)
 
-    evaluate_flight_phases(data_frame, phases)
+    evaluate_flight_phases(data_frame, phases, results)
 
     # plot translational offset (Port to Port)
     plot_values(

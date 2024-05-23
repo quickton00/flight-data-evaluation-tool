@@ -136,43 +136,37 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                 results[f"{controller}{coordinate}AvgTime_{phase}"] = 0
 
     # calculation for "THCxErr_{phase}" and "THCxIndErr_{phase}" except x
-    # flight_errors = flight_data[
-    #     (
-    #         (
-    #             (flight_data["COG Vel.x [m]"] > flight_data["Ideal Approach Vel"])
-    #             & (flight_data[f"THC.x"] != 0)
-    #             & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
-    #         )
-    #         | (
-    #             (flight_data[value_name] > 0)
-    #             & (flight_data[f"{controller}.{coordinate}"] > 0)
-    #             & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
-    #         )
-    #         | (
-    #             (flight_data[value_name] < 0)
-    #             & (flight_data[f"{controller}.{coordinate}"] < 0)
-    #             & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
-    #         )
-    #     )
-    #     & (
-    #         (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
-    #         & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
-    #     )
-    # ]
+    flight_errors = flight_data[
+        (
+            (
+                (flight_data["COG Vel.x [m]"] < flight_data["Ideal Approach Vel"])
+                & (flight_data["THC.x"] < 0)
+                & (flight_data["THC.x"].shift(periods=1, fill_value=0) == 0)
+            )
+            | (
+                (flight_data["COG Vel.x [m]"] < flight_data["Ideal Approach Vel"])
+                & (flight_data["THC.x"] < 0)
+                & (
+                    flight_data["COG Vel.x [m]"].shift(periods=1, fill_value=0)
+                    >= flight_data["Ideal Approach Vel"].shift(periods=1, fill_value=0)
+                )
+            )
+            | (
+                (flight_data["COG Vel.x [m]"] > 0)
+                & (flight_data["THC.x"] > 0)
+                & (flight_data["THC.x"].shift(periods=1, fill_value=0) == 0)
+            )
+        )
+        & (
+            (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+            & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+        )
+    ]
 
-    # results[f"{controller}{coordinate}Err_{phase}"] = len(flight_errors)
+    results[f"THCxErr_{phase}"] = len(flight_errors)
 
-    # # calculation for "{controller}{coordinate}IndErr_{phase}"
-    # if controller == "THC":
-    #     other_controller_axis = ["THC.y", "THC.z"]
-    # else:
-    #     other_controller_axis = ["RHC.x", "RHC.y", "RHC.z"]
-
-    # other_controller_axis.remove(f"{controller}.{coordinate}")
-
-    # results[f"{controller}{coordinate}IndErr_{phase}"] = len(
-    #     flight_errors[flight_errors[other_controller_axis].any(axis=1)]
-    # )
+    # calculation for "THCxIndErr_{phase}"
+    results[f"THCxIndErr_{phase}"] = len(flight_errors[flight_errors[["THC.y", "THC.z"]].any(axis=1)])
 
     # ToDo
     # check the following calculation, could be wrong because some axes are inverted
@@ -357,9 +351,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
         results[f"{result_name}Rms_{phase}"] = (filtered_flight_data[column_name] ** 2).mean() ** 0.5
 
 
-def evaluate_flight_phases(flight_data, flight_phase_timestamps):
-    results = create_dataframe_template_from_yaml()
-
+def evaluate_flight_phases(flight_data, flight_phase_timestamps, results):
     start_index = 0
     stop_index = 1
     for phase in ["Align", "Appr", "FA", "Total"]:
@@ -377,6 +369,10 @@ def evaluate_flight_phases(flight_data, flight_phase_timestamps):
         "Lateral Offset"
     ]
 
+    results["Manually modified Phases"]  # ToDo
+    results["NoVisTime_Align"]  # ToDo
+    results["NoVisTime_Appr"]  # ToDo
+    results["NoVisTime_FA"]  # ToDo
     results["NoVisTime_Total"]  # ToDo
     results["Fuel_on_Error"]  # ToDo
 
