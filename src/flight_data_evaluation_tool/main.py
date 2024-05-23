@@ -206,8 +206,9 @@ if __name__ == "__main__":
     data_frame = pd.DataFrame(data, columns=columns)
 
     # calculate additional value sets
-    # lateral offset off Port Position from x-Axis
+    # lateral offset and velocity off COG Position from x-Axis
     data_frame["Lateral Offset"] = (data_frame["COG Pos.y [m]"] ** 2 + data_frame["COG Pos.z [m]"] ** 2) ** 0.5
+    data_frame["Lateral Velocity"] = (data_frame["COG Vel.y [m]"] ** 2 + data_frame["COG Vel.z [m]"] ** 2) ** 0.5
 
     # data set for ideal aproach velocity
     data_frame["Ideal Approach Vel"] = -data_frame["COG Pos.x [m]"] / 200
