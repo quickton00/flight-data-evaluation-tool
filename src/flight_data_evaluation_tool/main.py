@@ -1,6 +1,7 @@
 import math
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 from evaluation import create_dataframe_template_from_yaml, evaluate_flight_phases
 
 
@@ -173,6 +174,24 @@ def _calculate_backup_approach_phases(data_frame: pd.DataFrame, phases: list) ->
     return phases
 
 
+def angle_to_docking_port(front, back):
+    # Calculate the direction vector from back to front
+    direction_vector = np.array(front) - np.array(back)
+
+    # Calculate the vector from the front of the spacecraft to the origin
+    to_origin_vector = -np.array(front)
+
+    # Normalize the vectors
+    direction_unit_vector = direction_vector / np.linalg.norm(direction_vector)
+    to_origin_unit_vector = to_origin_vector / np.linalg.norm(to_origin_vector)
+
+    # Calculate the angle between the direction vector and the vector to the origin
+    dot_product = np.dot(direction_unit_vector, to_origin_unit_vector)
+    angle = np.arccos(dot_product) * (180 / np.pi)
+
+    return angle
+
+
 if __name__ == "__main__":
     # Open the log file
     # with open(r"C:\Users\Admin\Downloads\SoyuzData\Data Flights\1st week ITA\FDL-2022-11-10-12-56-04_15Dima_ITA_0000.log", 'r') as file:
@@ -230,6 +249,15 @@ if __name__ == "__main__":
     # data set for ideal aproach velocity
     data_frame["Ideal Approach Vel"] = -data_frame["COG Pos.x [m]"] / 200
     data_frame.loc[data_frame["COG Pos.x [m]"] < 20, "Ideal Approach Vel"] = -0.1
+
+    # angle from vessel line of sight to ISS-Port
+    data_frame["Angle to Port"] = data_frame.apply(
+        lambda row: angle_to_docking_port(
+            [row["Port Pos.x [m]"], row["Port Pos.y [m]"], row["Port Pos.z [m]"]],
+            [row["COG Pos.x [m]"], row["COG Pos.y [m]"], row["COG Pos.z [m]"]],
+        ),
+        axis=1,
+    )
 
     # data set to draw approach cone in plots
     data_frame["Approach Cone"] = data_frame["COG Pos.x [m]"] * math.tan(10 * math.pi / 180)
@@ -355,6 +383,17 @@ if __name__ == "__main__":
         "Tank Mass over Simulation Time",
         "Simulation Time",
         "Tank Mass (kg)",
+        None,
+        phases,
+    )
+
+    # plot angles to port over time
+    plot_values(
+        data_frame["SimTime"],
+        data_frame["Angle to Port"],
+        "Angle to Port",
+        "Simulation Time",
+        "Angle",
         None,
         phases,
     )
