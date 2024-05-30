@@ -6,7 +6,16 @@ from evaluation import create_dataframe_template_from_yaml, evaluate_flight_phas
 
 
 def plot_values(
-    x_values: pd.DataFrame, y_values: pd.DataFrame, title: str, x_label: str, y_label: str, plot_names=None, phases=[]
+    ax,
+    flight_data: pd.DataFrame,
+    x_values: pd.DataFrame,
+    y_values: pd.DataFrame,
+    title: str,
+    x_label: str,
+    y_label: str,
+    plot_names=None,
+    phases=[],
+    corridor=None,
 ):
     """
     Function to plot x-values against y-values.
@@ -27,31 +36,37 @@ def plot_values(
     :type plot_names: dict, optional
     """
 
-    plt.figure(figsize=(20, 12))  # Set figure size (width, height)
-
     if isinstance(y_values, pd.DataFrame):
         for column_name, column_data in y_values.items():
             if plot_names is not None:
                 column_name = plot_names[column_name]
 
-            plt.plot(
-                x_values.tolist(), column_data.tolist(), marker="", linestyle="-", linewidth=0.5, label=column_name
-            )
+            ax.plot(x_values.tolist(), column_data.tolist(), marker="", linestyle="-", linewidth=0.5, label=column_name)
 
     else:
-        plt.plot(
+        ax.plot(
             x_values.tolist(), y_values.tolist(), marker="", linestyle="-", linewidth=0.5, label=y_values.name
         )  # better without using pandas series
 
     for value in phases:
         if value is not None:
-            plt.axvline(x=value, color="black", linestyle=":")
+            ax.axvline(x=value, color="black", linestyle=":")
 
-    plt.title(title)
-    plt.xlabel(x_label)
-    plt.ylabel(y_label)
-    plt.legend(loc="upper right")
-    plt.grid(linestyle="--", linewidth=0.5)
+    ax.set_title(title)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.legend(loc="upper right")
+    ax.grid(linestyle="--", linewidth=0.5)
+
+    if corridor:
+        ax.fill_between(
+            flight_data["SimTime"].tolist(),
+            flight_data[corridor].tolist(),
+            (flight_data[corridor] * -1).tolist(),
+            color="#d3d3d3",
+            label=corridor,
+        )
+        ax.legend(loc="upper right")
 
 
 def calculate_approach_phases(data_frame: pd.DataFrame) -> list:
@@ -182,8 +197,14 @@ def angle_to_docking_port(front, back):
     to_origin_vector = -np.array(front)
 
     # Normalize the vectors
-    direction_unit_vector = direction_vector / np.linalg.norm(direction_vector)
-    to_origin_unit_vector = to_origin_vector / np.linalg.norm(to_origin_vector)
+    if np.linalg.norm(direction_vector) != 0:
+        direction_unit_vector = direction_vector / np.linalg.norm(direction_vector)
+    else:
+        direction_unit_vector = np.array([np.nan, np.nan, np.nan])
+    if np.linalg.norm(to_origin_vector) != 0:
+        to_origin_unit_vector = to_origin_vector / np.linalg.norm(to_origin_vector)
+    else:
+        to_origin_unit_vector = np.array([np.nan, np.nan, np.nan])
 
     # Calculate the angle between the direction vector and the vector to the origin
     dot_product = np.dot(direction_unit_vector, to_origin_unit_vector)
@@ -192,15 +213,9 @@ def angle_to_docking_port(front, back):
     return angle
 
 
-if __name__ == "__main__":
-    # Open the log file
-    # with open(r"C:\Users\Admin\Downloads\SoyuzData\Data Flights\1st week ITA\FDL-2022-11-10-12-56-04_15Dima_ITA_0000.log", 'r') as file:
-    with open(
-        r"C:\Users\Admin\Desktop\flight_data_test\FDL-2024-05-15-07-07-23_Anton_B004FT-FT2-Anton-15_0000 - myTool.log",
-        "r",
-        encoding="utf-8",
-    ) as file:
-        # with open(r"C:\Users\Admin\Desktop\flight_data\FDL-2024-05-08-08-22-26_Anton_FT2-B001b-Anton_0000.log","r",encoding="utf-8",) as file:
+# if __name__ == "__main__":
+def start_flight_evaluation(flight_logs):
+    with open(flight_logs[0], encoding="utf-8") as file:
 
         lines = file.readlines()
 
@@ -274,128 +289,91 @@ if __name__ == "__main__":
 
     evaluate_flight_phases(data_frame, phases, results)
 
-    # plot translational offset (Port to Port)
-    plot_values(
-        data_frame["SimTime"],
-        data_frame[["COG Pos.x [m]", "COG Pos.y [m]", "COG Pos.z [m]", "Lateral Offset"]],
-        "Translational Offset Port-Vessel/Port-Station",
-        "Simulation time (s)",
-        "Translational Offset (m)",
-        {
-            "COG Pos.x [m]": "Trans. Offset X",
-            "COG Pos.y [m]": "Trans. Offset Y",
-            "COG Pos.z [m]": "Trans. Offset Z",
-            "Lateral Offset": "Lateral Offset",
-        },
-        phases,
-    )
+    figure = plt.figure(figsize=(24, 12))  # Set figure size (width, height)
 
-    plt.fill_between(
-        data_frame["SimTime"].tolist(),
-        data_frame["Approach Cone"].tolist(),
-        (data_frame["Approach Cone"] * -1).tolist(),
-        color="#d3d3d3",
-        label="Lateral Approach Cone",
-    )
-    plt.legend(loc="upper right")
+    plots = {
+        "Translational Offset Port-Vessel/Port-Station": [
+            data_frame[["COG Pos.x [m]", "COG Pos.y [m]", "COG Pos.z [m]", "Lateral Offset"]],
+            "Translational Offset (m)",
+            {
+                "COG Pos.x [m]": "Trans. Offset X",
+                "COG Pos.y [m]": "Trans. Offset Y",
+                "COG Pos.z [m]": "Trans. Offset Z",
+                "Lateral Offset": "Lateral Offset",
+            },
+            "Approach Cone",
+        ],
+        "Translational Velocity (CoG Vessel)": [
+            data_frame[["COG Vel.x [m]", "COG Vel.y [m]", "COG Vel.z [m]", "Ideal Approach Vel"]],
+            "Translational Velocity (m/s)",
+            None,
+            None,
+        ],
+        "Angular Position of the Vessel": [
+            data_frame[["Rot Angle.x [deg]", "Rot Angle.y [deg]", "Rot Angle.z [deg]"]],
+            "Rotational Angle (°)",
+            {
+                "Rot Angle.x [deg]": "Roll Position",
+                "Rot Angle.y [deg]": "Yaw Position",
+                "Rot Angle.z [deg]": "Pitch Position",
+            },
+            "Max Rot Angle",
+        ],
+        "Rotation Velocities": [
+            data_frame[["Rot. Rate.x [deg/s]", "Rot. Rate.y [deg/s]", "Rot. Rate.Z [deg/s]"]],
+            "Rotational Rate (°/s)",
+            {
+                "Rot. Rate.x [deg/s]": "Roll Rate",
+                "Rot. Rate.y [deg/s]": "Yaw Rate",
+                "Rot. Rate.Z [deg/s]": "Pitch Rate",
+            },
+            "Max Rot Velocity",
+        ],
+        "THC": [
+            data_frame[["THC.x", "THC.y", "THC.z"]],
+            "Translational Controller Inputs",
+            None,
+            None,
+        ],
+        "RHC": [
+            data_frame[["RHC.x", "RHC.y", "RHC.z"]],
+            "Rotational Controller Inputs",
+            None,
+            None,
+        ],
+        "Tank Mass over Simulation Time": [
+            data_frame["Tank mass [kg]"],
+            "Tank Mass (kg)",
+            None,
+            None,
+        ],
+        "Angle to Port": [
+            data_frame["Angle to Port"],
+            "Angle",
+            None,
+            None,
+        ],
+    }
+    counter = 1
 
-    # plot translational velocity (CoG Vessel)
-    plot_values(
-        data_frame["SimTime"],
-        data_frame[["COG Vel.x [m]", "COG Vel.y [m]", "COG Vel.z [m]", "Ideal Approach Vel"]],
-        "Translational Velocity (CoG Vessel)",
-        "Simulation time (s)",
-        "Translational Velocity (m/s)",
-        None,
-        phases,
-    )
+    for title in plots:
+        ax = figure.add_subplot(240 + counter)
+        plot_values(
+            ax,
+            data_frame,
+            data_frame["SimTime"],
+            plots[title][0],
+            title,
+            "Simulation time (s)",
+            plots[title][1],
+            plots[title][2],
+            phases,
+            corridor=plots[title][3],
+        )
+        counter += 1
 
-    # plot rotaional angles
-    plot_values(
-        data_frame["SimTime"],
-        data_frame[["Rot Angle.x [deg]", "Rot Angle.y [deg]", "Rot Angle.z [deg]"]],
-        "Angular Position of the Vessel",
-        "Simulation time (s)",
-        "Rotational Angle (°)",
-        {
-            "Rot Angle.x [deg]": "Roll Position",
-            "Rot Angle.y [deg]": "Yaw Position",
-            "Rot Angle.z [deg]": "Pitch Position",
-        },
-        phases,
-    )
+    plt.subplots_adjust(left=0.04, right=0.99)
 
-    plt.fill_between(
-        data_frame["SimTime"].tolist(),
-        data_frame["Max Rot Angle"].tolist(),
-        (data_frame["Max Rot Angle"] * -1).tolist(),
-        color="#d3d3d3",
-        label="Max Rotaional Angle",
-    )
-    plt.legend(loc="upper right")
-
-    # plot rotational rates
-    plot_values(
-        data_frame["SimTime"],
-        data_frame[["Rot. Rate.x [deg/s]", "Rot. Rate.y [deg/s]", "Rot. Rate.Z [deg/s]"]],
-        "Rotation Velocities",
-        "Simulation time (s)",
-        "Rotational Rate (°/s)",
-        {"Rot. Rate.x [deg/s]": "Roll Rate", "Rot. Rate.y [deg/s]": "Yaw Rate", "Rot. Rate.Z [deg/s]": "Pitch Rate"},
-        phases,
-    )
-
-    plt.fill_between(
-        data_frame["SimTime"].tolist(),
-        data_frame["Max Rot Velocity"].tolist(),
-        (data_frame["Max Rot Velocity"] * -1).tolist(),
-        color="#d3d3d3",
-        label="Max Rot Velocity",
-    )
-    plt.legend(loc="upper right")
-
-    # plot translational controller inputs
-    plot_values(
-        data_frame["SimTime"],
-        data_frame[["THC.x", "THC.y", "THC.z"]],
-        "THC",
-        "Simulation time (s)",
-        "Translational Controller Inputs",
-        None,
-        phases,
-    )
-
-    # plot rotaional controller inputs
-    plot_values(
-        data_frame["SimTime"],
-        data_frame[["RHC.x", "RHC.y", "RHC.z"]],
-        "RHC",
-        "Simulation time (s)",
-        "Rotational Controller Inputs",
-        None,
-        phases,
-    )
-
-    # plot tank mass over time
-    plot_values(
-        data_frame["SimTime"],
-        data_frame["Tank mass [kg]"],
-        "Tank Mass over Simulation Time",
-        "Simulation Time",
-        "Tank Mass (kg)",
-        None,
-        phases,
-    )
-
-    # plot angles to port over time
-    plot_values(
-        data_frame["SimTime"],
-        data_frame["Angle to Port"],
-        "Angle to Port",
-        "Simulation Time",
-        "Angle",
-        None,
-        phases,
-    )
+    return figure
 
     plt.show()  # Display the plot
