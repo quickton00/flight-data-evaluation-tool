@@ -89,7 +89,7 @@ def calculate_approach_phases(data_frame: pd.DataFrame) -> list:
             ]
         )
     except IndexError:
-        phases.append(data_frame["SimTime"][0])
+        phases.append(data_frame.iloc[0]["SimTime"])
         print(f"No Controller Input, check Log-File integrity, BACKUP value t={phases[-1]} is used.")
 
     # Alignment -> Approach phase
@@ -137,7 +137,7 @@ def calculate_approach_phases(data_frame: pd.DataFrame) -> list:
     try:
         phases.append(data_frame[data_frame["Port Pos.x [m]"] == 0].iloc[0]["SimTime"])
     except IndexError:
-        phases.append(data_frame["SimTime"][-1])
+        phases.append(data_frame.iloc[-1]["SimTime"])
         print(f"Vessel not docked, BACKUP value t={phases[-1]} is used.")
 
     if None in phases:
@@ -213,42 +213,7 @@ def angle_to_docking_port(front, back):
     return angle
 
 
-# if __name__ == "__main__":
-def start_flight_evaluation(flight_logs):
-    with open(flight_logs[0], encoding="utf-8") as file:
-
-        lines = file.readlines()
-
-        data = []
-        results = create_dataframe_template_from_yaml()
-
-        # Iterate over each line in the file
-        for line in lines:
-            if line.startswith("#"):
-                line = line.strip("#").strip()
-                if line.startswith("Logger Version:"):
-                    results["Logger Version"] = line.split(":")[1].strip()
-                elif line.startswith("SESSION_ID:"):
-                    results["Session ID"] = line.split(":")[1].strip()
-                elif line.startswith("PILOT:"):
-                    results["Pilot"] = line.split(":")[1].strip()
-                elif line.startswith("TIME:"):
-                    results["Date"] = line.split(":")[1].strip().split(" ")[0].replace("-", ".")
-                elif line.startswith("SCENARIO:"):
-                    results["Scenario"] = line.split(":")[1].strip()
-                continue
-            if line.startswith("SimTime"):
-                line = line.replace("MFDRightMyROT.m11", "MFDRight; MyROT.m11")  # handle bug in logger
-                columns = map(str.strip, line.split(";"))
-                columns = filter(None, columns)
-                continue
-
-            # Split the line using ';' as delimiter
-            values = map(str.strip, line.split(";"))
-            values = filter(None, values)
-            values = [float(value) for value in values]
-            data.append(values)
-
+def start_flight_evaluation(data, columns, results):
     data_frame = pd.DataFrame(data, columns=columns)
 
     # coordinate system transformation from OrbVLCS to IssTPLCS
