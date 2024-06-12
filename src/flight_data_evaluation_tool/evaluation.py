@@ -3,6 +3,7 @@
 import pandas as pd
 import yaml
 import numpy as np
+import os
 
 
 def create_dataframe_template_from_yaml(yaml_file=r"src\flight_data_evaluation_tool\results_template.yaml"):
@@ -436,7 +437,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
         results[f"{result_name}Rms_{phase}"] = (filtered_flight_data[column_name] ** 2).mean() ** 0.5
 
 
-def evaluate_flight_phases(flight_data, flight_phase_timestamps, results):
+def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, save_dir):
     start_index = 0
     stop_index = 1
     results["Fuel_on_Error"] = 0
@@ -460,4 +461,4 @@ def evaluate_flight_phases(flight_data, flight_phase_timestamps, results):
 
     print(results.isna().sum(axis=1))
 
-    export_data(results, r"C:\Users\Admin\Desktop\EvaluationResults.txt")
+    export_data(results, os.path.join(save_dir, "EvaluationResults.txt"))

@@ -1,8 +1,10 @@
 import customtkinter
 from tkinter import filedialog, messagebox
 import os
-from main import start_flight_evaluation
+import matplotlib.pyplot as plt
+from datastructuring import structure_data, calculate_approach_phases, evaluate_flight_phases
 from evaluation import create_dataframe_template_from_yaml
+from plot import create_figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 
@@ -37,26 +39,46 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
 
 
 class ToplevelWindow(customtkinter.CTkToplevel):
-    def __init__(self, master, figure, *args, **kwargs):
+    def __init__(self, master, phases, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.master = master
+        self.phases = phases
         self.title("Flight Plots")
 
-        canvas = FigureCanvasTkAgg(figure, master=self)
+        self.figure, self.axvlines = create_figure(self.master.data_frame, self.phases)
 
-        toolbar = NavigationToolbar2Tk(canvas, self)
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self)
+
+        toolbar = NavigationToolbar2Tk(self.canvas, self)
         toolbar.update()
-        toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
+        toolbar.grid(row=0, column=0, columnspan=4, sticky="ew")
 
-        canvas.get_tk_widget().grid(row=1, column=0, columnspan=2, sticky="nsew")
-        canvas.draw()
+        self.canvas.get_tk_widget().grid(row=1, column=0, columnspan=4, sticky="nsew")
+        self.canvas.draw()
+
+        # Add phase number fields
+        self.entries = []
+        counter = 0
+        for phase in ["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]:
+            entry = customtkinter.CTkLabel(master=self, text=f"{phase} {round(self.phases[counter], 4)}", fg_color="transparent", anchor="w")
+            self.entries.append(entry)
+            entry.grid(row=2, column=counter, sticky="sew")
+            counter+=1
 
         # Add sliders for Flight Phase
-        slider_start = customtkinter.CTkSlider(self, from_=0, to=100, command=None)
-        slider_start.grid(row=2, column=0, sticky="sew")
+        self.sliders = []
+        for phase in range(len(self.phases)):
+            slider = customtkinter.CTkSlider(master=self, from_=0, to=self.master.data_frame.iloc[-1]["SimTime"], command=self.update_phase_lines)
+            self.sliders.append(slider)
+            slider.set(self.phases[phase])
+            slider.grid(row=3, column=phase, sticky="sew")
 
-        slider_allign = customtkinter.CTkSlider(self, from_=0, to=100, command=None)
-        slider_allign.grid(row=2, column=1, sticky="sew")
+        # Add various buttons
+        evaluate_button = customtkinter.CTkButton(
+            master=self, text="Create EvaluationResults.txt", command=self.evaluate_button_event
+        )
+        evaluate_button.grid(row=4, column=0, padx=15, pady=15, sticky="s")
 
         # lift TopLevelWindow in front
         self.lift()
@@ -65,7 +87,28 @@ class ToplevelWindow(customtkinter.CTkToplevel):
 
         # Make the canvas and toolbar resize with the window
         self.grid_rowconfigure(1, weight=1)
-        self.grid_columnconfigure((0, 1), weight=1)
+        self.grid_columnconfigure((0, 1, 2, 3), weight=1)
+
+    def update_phase_lines(self, value):
+        counter = 0
+        for phase in ["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]:
+            self.phases[counter] = self.sliders[counter].get()
+            self.entries[counter].configure(text=f"{phase} {round(self.phases[counter], 4)}")
+            for ax in self.axvlines:
+                self.axvlines[ax][counter].set_xdata([self.phases[counter]])
+            counter+=1
+
+        self.canvas.draw_idle()
+
+    def evaluate_button_event(self):
+        save_dir = filedialog.askdirectory(title="Select Save Folder")
+        if not save_dir:
+            return
+        # refactor timestamps of modified phases to nearest values in data_frame
+        for phase in range(len(self.phases)):
+            self.phases[phase] = min(self.master.data_frame["SimTime"], key=lambda x: abs(x - self.phases[phase]))
+
+        evaluate_flight_phases(self.master.data_frame, self.phases, self.master.results, save_dir)
 
 
 class App(customtkinter.CTk):
@@ -114,11 +157,13 @@ class App(customtkinter.CTk):
 
         session_identifiers = []
         log_numbers = []
+
+        if not flight_logs:
+            return
+
         # Check if selected Logs are valid
         for flight_log in flight_logs:
             file_basename, file_extension = os.path.splitext(os.path.basename(flight_log))
-            session_identifiers.append(file_basename.split("_")[0:-1])
-            log_numbers.append(int(file_basename.split("_")[-1]))
 
             if file_extension != ".log":
                 messagebox.showerror(
@@ -134,6 +179,16 @@ class App(customtkinter.CTk):
                 )
                 return
 
+        session_identifiers.append(file_basename.split("_")[0:-1])
+        try:
+            log_numbers.append(int(file_basename.split("_")[-1]))
+        except ValueError:
+            messagebox.showerror(
+                "Log Naming Error",
+                f"The last part of the Log filename should be a numerical identifier like 0000, 0001 etc. but is actually '{file_basename.split("_")[-1]}'",
+            )
+            return
+
         if not all(session_identifier == session_identifiers[0] for session_identifier in session_identifiers):
             messagebox.showerror(
                 "Log Selection Error",
@@ -148,10 +203,13 @@ class App(customtkinter.CTk):
             )
             return
 
-        data, columns, results = self._parse_logs(flight_logs)
-        if data and columns and not results.empty:
-            figure = start_flight_evaluation(data, columns, results)
-            self.toplevel_window = ToplevelWindow(self, figure)
+        data, columns = self._parse_logs(flight_logs)
+        if data and columns and not self.results.empty:
+            self.data_frame = structure_data(data, columns)
+
+            phases = calculate_approach_phases(self.data_frame)
+
+            self.toplevel_window = ToplevelWindow(self, phases)
 
     def on_closing(self):
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
@@ -162,7 +220,7 @@ class App(customtkinter.CTk):
     # this function doesnt have to be a class function; ToDo
     def _parse_logs(self, flight_logs):
         data = []
-        results = create_dataframe_template_from_yaml()
+        self.results = create_dataframe_template_from_yaml()
 
         for flight_log in flight_logs:
             with open(flight_log, encoding="utf-8") as file:
@@ -179,15 +237,15 @@ class App(customtkinter.CTk):
                     if line.startswith("#"):
                         line = line.strip("#").strip()
                         if line.startswith("Logger Version:"):
-                            results["Logger Version"] = line.split(":")[1].strip()
+                            self.results["Logger Version"] = line.split(":")[1].strip()
                         elif line.startswith("SESSION_ID:"):
-                            results["Session ID"] = line.split(":")[1].strip()
+                            self.results["Session ID"] = line.split(":")[1].strip()
                         elif line.startswith("PILOT:"):
-                            results["Pilot"] = line.split(":")[1].strip()
+                            self.results["Pilot"] = line.split(":")[1].strip()
                         elif line.startswith("TIME:"):
-                            results["Date"] = line.split(":")[1].strip().split(" ")[0].replace("-", ".")
+                            self.results["Date"] = line.split(":")[1].strip().split(" ")[0].replace("-", ".")
                         elif line.startswith("SCENARIO:"):
-                            results["Scenario"] = line.split(":")[1].strip()
+                            self.results["Scenario"] = line.split(":")[1].strip()
                         continue
                     if line.startswith("SimTime"):
                         line = line.replace("MFDRightMyROT.m11", "MFDRight; MyROT.m11")  # handle bug in logger
@@ -201,7 +259,7 @@ class App(customtkinter.CTk):
                     values = [float(value) for value in values]
                     data.append(values)
 
-        return data, columns, results
+        return data, columns
 
 
 if __name__ == "__main__":
