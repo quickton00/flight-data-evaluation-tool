@@ -10,6 +10,7 @@ def _plot_values(
     title: str,
     x_label: str,
     y_label: str,
+    total_flight_errors: dict,
     plot_names=None,
     phases=[],
     corridor=None,
@@ -33,12 +34,47 @@ def _plot_values(
     :type plot_names: dict, optional
     """
 
+    error_assignment = {
+        "COG Pos.x [m]": "THC.x",
+        "COG Pos.y [m]": "THC.y",
+        "COG Pos.z [m]": "THC.z",
+        "COG Vel.x [m]": "THC.x",
+        "COG Vel.y [m]": "THC.y",
+        "COG Vel.z [m]": "THC.z",
+        "Rot Angle.x [deg]": "RHC.x",
+        "Rot Angle.y [deg]": "RHC.y",
+        "Rot Angle.z [deg]": "RHC.z",
+        "Rot. Rate.x [deg/s]": "RHC.x",
+        "Rot. Rate.y [deg/s]": "RHC.y",
+        "Rot. Rate.Z [deg/s]": "RHC.z",
+        "THC.x": "THC.x",
+        "THC.y": "THC.y",
+        "THC.z": "THC.z",
+        "RHC.x": "RHC.x",
+        "RHC.y": "RHC.y",
+        "RHC.z": "RHC.z",
+    }
+
     if isinstance(y_values, pd.DataFrame):
         for column_name, column_data in y_values.items():
             if plot_names is not None:
-                column_name = plot_names[column_name]
+                plot_name = plot_names[column_name]
+            else:
+                plot_name = column_name
 
-            ax.plot(x_values.tolist(), column_data.tolist(), marker="", linestyle="-", linewidth=0.5, label=column_name)
+            ax.plot(x_values.tolist(), column_data.tolist(), marker="", linestyle="-", linewidth=0.5, label=plot_name)
+
+            # mark flight errors in respective plots
+            if "." in column_name:
+                ax.scatter(
+                    total_flight_errors[error_assignment[column_name]],
+                    flight_data[flight_data["SimTime"].isin(total_flight_errors[error_assignment[column_name]])][
+                        column_name
+                    ].to_list(),
+                    color="red",
+                    s=10,
+                    zorder=5,
+                )
 
     else:
         ax.plot(
@@ -70,7 +106,7 @@ def _plot_values(
     return axvlines
 
 
-def create_figure(data_frame, phases):
+def create_figure(data_frame, phases, total_flight_errors):
     figure = plt.figure(figsize=(24, 12))  # Set figure size (width, height)
 
     plots = {
@@ -136,10 +172,9 @@ def create_figure(data_frame, phases):
             None,
         ],
     }
-    counter = 1
 
     axvlines = {}
-    for title in plots:
+    for counter, title in enumerate(plots, 1):
         ax = figure.add_subplot(240 + counter)
         sub_axvlines = _plot_values(
             ax,
@@ -149,12 +184,12 @@ def create_figure(data_frame, phases):
             title,
             "Simulation time (s)",
             plots[title][1],
+            total_flight_errors,
             plots[title][2],
             phases,
             corridor=plots[title][3],
         )
         axvlines[ax] = sub_axvlines
-        counter += 1
 
     plt.subplots_adjust(left=0.04, right=0.99)
 

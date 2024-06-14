@@ -1,7 +1,6 @@
 import math
 import pandas as pd
 import numpy as np
-from evaluation import evaluate_flight_phases
 
 
 def calculate_approach_phases(data_frame: pd.DataFrame) -> list:

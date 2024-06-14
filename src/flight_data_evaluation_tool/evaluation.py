@@ -49,6 +49,8 @@ def export_data(flight_data, save_path):
 
 
 def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_index, flight_phase_timestamps, results):
+    total_flight_errors = {}
+
     # Calculation for "Start_{phase}"
     if f"Start_{phase}" in results.columns:
         results[f"Start_{phase}"] = flight_phase_timestamps[start_index]
@@ -197,6 +199,9 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
 
     results[f"THCxErr_{phase}"] = len(flight_errors)
 
+    if phase == "Total":
+        total_flight_errors["THC.x"] = flight_errors["SimTime"].to_list()
+
     # calculation for "THCxIndErr_{phase}"
     results[f"THCxIndErr_{phase}"] = len(flight_errors[flight_errors[["THC.y", "THC.z"]].any(axis=1)])
 
@@ -208,7 +213,9 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             "THC": f"COG Pos.{coordinate} [m]",
             "RHC": f"Rot Angle.{coordinate} [deg]",
         }.items():
-            if not (controller == "THC" and coordinate == "x"):
+            if controller == "THC" and coordinate == "x":
+                continue
+            if controller == "RHC":
                 start_condition = (
                     (
                         (flight_data[value_name] == 0)
@@ -261,46 +268,102 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                     (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
                     & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
                 )
-
-                flight_errors = flight_data[start_condition]
-
-                # calculation for "{controller}{coordinate}Err_{phase}"
-                results[f"{controller}{coordinate}Err_{phase}"] = len(flight_errors)
-
-                # calculation for "{controller}{coordinate}IndErr_{phase}"
-                if controller == "THC":
-                    other_controller_axis = ["THC.y", "THC.z"]
-                else:
-                    other_controller_axis = ["RHC.x", "RHC.y", "RHC.z"]
-
-                other_controller_axis.remove(f"{controller}.{coordinate}")
-
-                results[f"{controller}{coordinate}IndErr_{phase}"] = len(
-                    flight_errors[flight_errors[other_controller_axis].any(axis=1)]
+            elif controller == "THC":
+                start_condition = (
+                    (
+                        (flight_data[value_name] == 0)
+                        & (flight_data[f"{controller}.{coordinate}"] != 0)
+                        & (
+                            (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
+                            | (flight_data[value_name].shift(periods=1, fill_value=0) != 0)
+                        )
+                    )
+                    | (
+                        (flight_data[value_name] > 0)
+                        & (flight_data[f"{controller}.{coordinate}"] > 0)
+                        & (flight_data[f"COG Vel.{coordinate} [m]"] >= 0)
+                        & (
+                            (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
+                            | (flight_data[value_name].shift(periods=1, fill_value=0) <= 0)
+                        )
+                    )
+                    | (
+                        (flight_data[value_name] < 0)
+                        & (flight_data[f"{controller}.{coordinate}"] < 0)
+                        & (flight_data[f"COG Vel.{coordinate} [m]"] <= 0)
+                        & (
+                            (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
+                            | (flight_data[value_name].shift(periods=1, fill_value=0) >= 0)
+                        )
+                    )
+                ) & (
+                    (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+                    & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
                 )
 
-                # claculation for "Fuel_on_Error", could be changed to be phase specific
-                if phase == "Total":
-                    (start_steering_timestamps, stop_steering_timestamps) = start_stop_condition_evaluation(
-                        flight_data,
-                        start_condition,
-                        stop_condition,
-                        start_index,
-                        stop_index,
-                        flight_phase_timestamps,
+                stop_condition = (
+                    (
+                        (flight_data[value_name] == 0)
+                        & (flight_data[f"{controller}.{coordinate}"] == 0)
+                        & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) != 0)
                     )
+                    | (
+                        (flight_data[value_name] > 0)
+                        & (flight_data[f"{controller}.{coordinate}"] <= 0)
+                        & (flight_data[f"COG Vel.{coordinate} [m]"] >= 0)
+                        & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) > 0)
+                        & (flight_data[value_name].shift(periods=1, fill_value=0) > 0)
+                    )
+                    | (
+                        (flight_data[value_name] < 0)
+                        & (flight_data[f"{controller}.{coordinate}"] >= 0)
+                        & (flight_data[f"COG Vel.{coordinate} [m]"] <= 0)
+                        & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) < 0)
+                        & (flight_data[value_name].shift(periods=1, fill_value=0) < 0)
+                    )
+                ) & (
+                    (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+                    & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+                )
 
-                    results[f"Fuel_on_Error"] = results[f"Fuel_on_Error"] + sum(
-                        [
-                            flight_data[flight_data["SimTime"] == start_steering_timestamps[i]].iloc[0][
-                                "Tank mass [kg]"
-                            ]
-                            - flight_data[flight_data["SimTime"] == stop_steering_timestamps[i]].iloc[0][
-                                "Tank mass [kg]"
-                            ]
-                            for i in range(len(start_steering_timestamps))
-                        ]
-                    )
+            flight_errors = flight_data[start_condition]
+
+            if phase == "Total":
+                total_flight_errors[f"{controller}.{coordinate}"] = flight_errors["SimTime"].to_list()
+
+            # calculation for "{controller}{coordinate}Err_{phase}"
+            results[f"{controller}{coordinate}Err_{phase}"] = len(flight_errors)
+
+            # calculation for "{controller}{coordinate}IndErr_{phase}"
+            if controller == "THC":
+                other_controller_axis = ["THC.y", "THC.z"]
+            else:
+                other_controller_axis = ["RHC.x", "RHC.y", "RHC.z"]
+
+            other_controller_axis.remove(f"{controller}.{coordinate}")
+
+            results[f"{controller}{coordinate}IndErr_{phase}"] = len(
+                flight_errors[flight_errors[other_controller_axis].any(axis=1)]
+            )
+
+            # claculation for "Fuel_on_Error", could be changed to be phase specific
+            if phase == "Total":
+                (start_steering_timestamps, stop_steering_timestamps) = start_stop_condition_evaluation(
+                    flight_data,
+                    start_condition,
+                    stop_condition,
+                    start_index,
+                    stop_index,
+                    flight_phase_timestamps,
+                )
+
+                results[f"Fuel_on_Error"] = results[f"Fuel_on_Error"] + sum(
+                    [
+                        flight_data[flight_data["SimTime"] == start_steering_timestamps[i]].iloc[0]["Tank mass [kg]"]
+                        - flight_data[flight_data["SimTime"] == stop_steering_timestamps[i]].iloc[0]["Tank mass [kg]"]
+                        for i in range(len(start_steering_timestamps))
+                    ]
+                )
 
     # calculation for "CombJoy_{phase}" and "CombJoyTime_{phase}"
     start_condition = (
@@ -436,6 +499,8 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
 
         results[f"{result_name}Rms_{phase}"] = (filtered_flight_data[column_name] ** 2).mean() ** 0.5
 
+    return total_flight_errors
+
 
 def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, save_dir):
     start_index = 0
@@ -456,9 +521,5 @@ def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, save_d
     results["LatOffsetAt_Dock"] = flight_data[flight_data["SimTime"] == flight_phase_timestamps[3]].iloc[0][
         "Lateral Offset"
     ]
-
-    results["Manually modified Phases"]  # ToDo
-
-    print(results.isna().sum(axis=1))
 
     export_data(results, os.path.join(save_dir, "EvaluationResults.txt"))

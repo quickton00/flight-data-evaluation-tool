@@ -2,8 +2,8 @@ import customtkinter
 from tkinter import filedialog, messagebox
 import os
 import matplotlib.pyplot as plt
-from datastructuring import structure_data, calculate_approach_phases, evaluate_flight_phases
-from evaluation import create_dataframe_template_from_yaml
+from datastructuring import structure_data, calculate_approach_phases
+from evaluation import create_dataframe_template_from_yaml, evaluate_flight_phases, calculate_phase_evaluation_values
 from plot import create_figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
@@ -46,7 +46,9 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         self.phases = phases
         self.title("Flight Plots")
 
-        self.figure, self.axvlines = create_figure(self.master.data_frame, self.phases)
+        total_flight_errors = calculate_phase_evaluation_values(self.master.data_frame, "Total", 0, 3, self.phases, self.master.results)
+
+        self.figure, self.axvlines = create_figure(self.master.data_frame, self.phases, total_flight_errors)
 
         self.canvas = FigureCanvasTkAgg(self.figure, master=self)
 
@@ -59,20 +61,18 @@ class ToplevelWindow(customtkinter.CTkToplevel):
 
         # Add phase number fields
         self.entries = []
-        counter = 0
-        for phase in ["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]:
+        for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
             entry = customtkinter.CTkLabel(master=self, text=f"{phase} {round(self.phases[counter], 4)}", fg_color="transparent", anchor="w")
             self.entries.append(entry)
             entry.grid(row=2, column=counter, sticky="sew")
-            counter+=1
 
         # Add sliders for Flight Phase
         self.sliders = []
-        for phase in range(len(self.phases)):
+        for counter, _ in enumerate(self.phases):
             slider = customtkinter.CTkSlider(master=self, from_=0, to=self.master.data_frame.iloc[-1]["SimTime"], command=self.update_phase_lines)
             self.sliders.append(slider)
-            slider.set(self.phases[phase])
-            slider.grid(row=3, column=phase, sticky="sew")
+            slider.set(self.phases[counter])
+            slider.grid(row=3, column=counter, sticky="sew")
 
         # Add various buttons
         evaluate_button = customtkinter.CTkButton(
@@ -89,24 +89,38 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
-    def update_phase_lines(self, value):
-        counter = 0
-        for phase in ["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]:
+    def update_phase_lines(self, _):
+        self.master.results["Manually modified Phases"] = "Yes"
+
+        for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
             self.phases[counter] = self.sliders[counter].get()
             self.entries[counter].configure(text=f"{phase} {round(self.phases[counter], 4)}")
             for ax in self.axvlines:
                 self.axvlines[ax][counter].set_xdata([self.phases[counter]])
-            counter+=1
 
-        self.canvas.draw_idle()
+        self.canvas.draw()
 
     def evaluate_button_event(self):
+        # refactor timestamps of modified phases to nearest values in data_frame
+        for counter, _ in enumerate(self.phases):
+            self.phases[counter] = min(self.master.data_frame["SimTime"], key=lambda x: abs(x - self.phases[counter]))
+
+        sorted = True
+        for counter, _ in enumerate(self.phases[0:-1]):
+            if self.phases[counter] > self.phases[counter+1]:
+                sorted = False
+
+        if not sorted:
+            messagebox.showerror(
+                "Phase Timestamps Error",
+                f"Phase Timestamp have to be in ascending order (from smallest to largest) but are actually not: {self.phases}.\n"
+                "Make sure that the order of the phases is: Alignment Start <= Approach Start <= Final Approach Start <= Docking Time",
+            )
+            return
+
         save_dir = filedialog.askdirectory(title="Select Save Folder")
         if not save_dir:
             return
-        # refactor timestamps of modified phases to nearest values in data_frame
-        for phase in range(len(self.phases)):
-            self.phases[phase] = min(self.master.data_frame["SimTime"], key=lambda x: abs(x - self.phases[phase]))
 
         evaluate_flight_phases(self.master.data_frame, self.phases, self.master.results, save_dir)
 
@@ -179,15 +193,16 @@ class App(customtkinter.CTk):
                 )
                 return
 
-        session_identifiers.append(file_basename.split("_")[0:-1])
-        try:
-            log_numbers.append(int(file_basename.split("_")[-1]))
-        except ValueError:
-            messagebox.showerror(
-                "Log Naming Error",
-                f"The last part of the Log filename should be a numerical identifier like 0000, 0001 etc. but is actually '{file_basename.split("_")[-1]}'",
-            )
-            return
+            session_identifiers.append(file_basename.rsplit("_", 1)[0])
+
+            try:
+                log_numbers.append(int(file_basename.split("_")[-1]))
+            except ValueError:
+                messagebox.showerror(
+                    "Log Naming Error",
+                    f"The last part of the Log filename should be a numerical identifier like 0000, 0001 etc. but is actually '{file_basename.split("_")[-1]}'",
+                )
+                return
 
         if not all(session_identifier == session_identifiers[0] for session_identifier in session_identifiers):
             messagebox.showerror(
@@ -228,9 +243,9 @@ class App(customtkinter.CTk):
                 if flight_log == flight_logs[-1] and lines[-1].strip() != "# Log stopped.":
                     messagebox.showerror(
                         "Log Selection Error",
-                        f"Last Log of the session is missing. Please select it and try again.",
+                        "Last Log of the session is missing. Please select it and try again.",
                     )
-                    return None, None, None
+                    return None, None
 
                 # Iterate over each line in the file
                 for line in lines:
@@ -258,6 +273,8 @@ class App(customtkinter.CTk):
                     values = filter(None, values)
                     values = [float(value) for value in values]
                     data.append(values)
+
+        self.results["Manually modified Phases"] = "No"
 
         return data, columns
 
