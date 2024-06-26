@@ -110,7 +110,7 @@ def create_figure(data_frame, phases, total_flight_errors):
     figure = plt.figure(figsize=(24, 12))  # Set figure size (width, height)
 
     plots = {
-        "Translational Offset Port-Vessel/Port-Station": [
+        "Translational Offset to Port-Station": [
             data_frame[["COG Pos.x [m]", "COG Pos.y [m]", "COG Pos.z [m]", "Lateral Offset"]],
             "Translational Offset (m)",
             {

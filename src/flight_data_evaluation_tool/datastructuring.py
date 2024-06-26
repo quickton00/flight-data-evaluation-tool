@@ -44,6 +44,7 @@ def calculate_approach_phases(data_frame: pd.DataFrame) -> list:
                 & (data_frame["SimTime"] > phases[-1])
             ].iloc[0]["SimTime"]
         )  # alignment has to be after checkout
+        print("Strict criteria between Alignment -> Approach phase is used.")
 
     except IndexError:
         # soft criteria
@@ -57,7 +58,7 @@ def calculate_approach_phases(data_frame: pd.DataFrame) -> list:
                     & (data_frame["SimTime"] > phases[-1])
                 ].iloc[0]["SimTime"]
             )  # alignment has to be after checkout
-            print("soft criteria between Alignment -> Approach phase is used")
+            print("Soft criteria between Alignment -> Approach phase is used.")
         except IndexError:
             phases.append(None)
 
@@ -164,11 +165,11 @@ def structure_data(data, columns):
     data_frame["Ideal Approach Vel"] = -data_frame["COG Pos.x [m]"] / 200
     data_frame.loc[data_frame["COG Pos.x [m]"] < 20, "Ideal Approach Vel"] = -0.1
 
-    # angle from vessel line of sight to ISS-Port
+    # angle from vessel line of sight to ISS-Port (3.471 is distance from port to periscope along flight direction)
     data_frame["Angle to Port"] = data_frame.apply(
         lambda row: angle_to_docking_port(
-            [row["Port Pos.x [m]"], row["Port Pos.y [m]"], row["Port Pos.z [m]"]],
-            [row["COG Pos.x [m]"], row["COG Pos.y [m]"], row["COG Pos.z [m]"]],
+            [row["Port Pos.x [m]"] + 3.471, row["Port Pos.y [m]"], row["Port Pos.z [m]"]],
+            [row["COG Pos.x [m]"] + 3.471, row["COG Pos.y [m]"], row["COG Pos.z [m]"]],
         ),
         axis=1,
     )

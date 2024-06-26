@@ -1,10 +1,12 @@
 import customtkinter
 from tkinter import filedialog, messagebox
 import os
-import matplotlib.pyplot as plt
+import sys
+from contextlib import contextmanager
 from datastructuring import structure_data, calculate_approach_phases
 from evaluation import create_dataframe_template_from_yaml, evaluate_flight_phases, calculate_phase_evaluation_values
 from plot import create_figure
+from matplotlib.transforms import Bbox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 
@@ -80,6 +82,15 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         )
         evaluate_button.grid(row=4, column=0, padx=15, pady=15, sticky="s")
 
+        print_button = customtkinter.CTkButton(
+            master=self, text="Save Plots individually", command=self.print_button_event
+        )
+        print_button.grid(row=4, column=1, padx=15, pady=15, sticky="s")
+
+        # create execution info box
+        self.execution_info = customtkinter.CTkLabel(master=self, text="", fg_color="transparent", corner_radius=15, wraplength=350)
+        self.execution_info.grid(row=4, column=3)
+
         # lift TopLevelWindow in front
         self.lift()
         self.focus_force()
@@ -101,6 +112,8 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         self.canvas.draw()
 
     def evaluate_button_event(self):
+        self.execution_info.configure(text="", fg_color="transparent")
+
         # refactor timestamps of modified phases to nearest values in data_frame
         for counter, _ in enumerate(self.phases):
             self.phases[counter] = min(self.master.data_frame["SimTime"], key=lambda x: abs(x - self.phases[counter]))
@@ -116,6 +129,11 @@ class ToplevelWindow(customtkinter.CTkToplevel):
                 f"Phase Timestamp have to be in ascending order (from smallest to largest) but are actually not: {self.phases}.\n"
                 "Make sure that the order of the phases is: Alignment Start <= Approach Start <= Final Approach Start <= Docking Time",
             )
+            self.execution_info.configure(text="Phase Timestamps Error", fg_color="#ED2939")
+            # lift TopLevelWindow in front
+            self.lift()
+            self.focus_force()
+            self.after(10, self.focus_force)
             return
 
         save_dir = filedialog.askdirectory(title="Select Save Folder")
@@ -123,6 +141,43 @@ class ToplevelWindow(customtkinter.CTkToplevel):
             return
 
         evaluate_flight_phases(self.master.data_frame, self.phases, self.master.results, save_dir)
+
+        self.execution_info.configure(text=f"EvaluationResults.txt created under {save_dir}.", fg_color="#00ab41")
+
+        # lift TopLevelWindow in front
+        self.lift()
+        self.focus_force()
+        self.after(10, self.focus_force)
+
+    def print_button_event(self):
+        self.execution_info.configure(text="", fg_color="transparent")
+
+        save_dir = filedialog.askdirectory(title="Select Save Folder")
+        if not save_dir:
+            return
+
+        for ax in self.figure.axes:
+            extent = ax.get_window_extent().transformed(self.figure.dpi_scale_trans.inverted())
+
+            # Manually adjust the extent to add extra space to the left and bottom
+            xmin, ymin, xmax, ymax = extent.extents
+            xmin -= 0.8     #left
+            xmax += 0.1     #right
+            ymin -= 0.5     #bottom
+            ymax += 0.3     #top
+
+            # Create a new extent with the adjusted coordinates
+            extent = Bbox([[xmin, ymin], [xmax, ymax]])
+
+            title = ax.get_title()
+            self.figure.savefig(os.path.join(save_dir, f'{title}.png'), bbox_inches=extent, dpi = 400)
+
+            self.execution_info.configure(text=f"Plots individually saved as 'png' under {save_dir}.", fg_color="#00ab41")
+
+        # lift TopLevelWindow in front
+        self.lift()
+        self.focus_force()
+        self.after(10, self.focus_force)
 
 
 class App(customtkinter.CTk):
@@ -143,7 +198,7 @@ class App(customtkinter.CTk):
         self.delete_files_button = customtkinter.CTkButton(
             master=self, text="Remove All Flights", command=self.remove_all_files
         )
-        self.delete_files_button.grid(row=0, column=1, padx=15, pady=15)
+        self.delete_files_button.grid(row=0, column=1, padx=15, pady=15, sticky="e")
 
         # create scrollable checkbox frame
         self.scrollable_checkbox_frame = ScrollableCheckBoxFrame(master=self)
@@ -154,6 +209,10 @@ class App(customtkinter.CTk):
             master=self, text="Evaluate Flight", command=self.evaluate_button_event
         )
         self.evaluate_button.grid(row=2, column=0, padx=15, pady=15, sticky="w")
+
+        # create execution info box
+        self.execution_info = customtkinter.CTkLabel(master=self, text="", fg_color="transparent", width=30, corner_radius=15)
+        self.execution_info.grid(row=2, column=1, padx=15, pady=15)
 
         self.toplevel_window = None
 
@@ -166,6 +225,7 @@ class App(customtkinter.CTk):
         self.scrollable_checkbox_frame.remove_all_logs()
 
     def evaluate_button_event(self):
+        self.execution_info.configure(text="", fg_color="transparent")
         flight_logs = self.scrollable_checkbox_frame.get_checked_items()
         flight_logs = sorted(flight_logs, key=os.path.basename)
 
@@ -184,6 +244,7 @@ class App(customtkinter.CTk):
                     "Log Format Error",
                     f"The Format of the Flight Log '{os.path.basename(flight_log)}' is '{file_extension}' but '.log' is required",
                 )
+                self.execution_info.configure(text="Log Format Error", fg_color="#ED2939")
                 return
 
             if not file_basename.startswith("FDL"):
@@ -191,6 +252,7 @@ class App(customtkinter.CTk):
                     "Log Naming Error",
                     f"The Name of the Flight Log '{os.path.basename(flight_log)}' don't starts with FDL.",
                 )
+                self.execution_info.configure(text="Log Naming Error", fg_color="#ED2939")
                 return
 
             session_identifiers.append(file_basename.rsplit("_", 1)[0])
@@ -202,6 +264,7 @@ class App(customtkinter.CTk):
                     "Log Naming Error",
                     f"The last part of the Log filename should be a numerical identifier like 0000, 0001 etc. but is actually '{file_basename.split("_")[-1]}'",
                 )
+                self.execution_info.configure(text="Log Naming Error", fg_color="#ED2939")
                 return
 
         if not all(session_identifier == session_identifiers[0] for session_identifier in session_identifiers):
@@ -209,6 +272,7 @@ class App(customtkinter.CTk):
                 "Log Selection Error",
                 "Not all selected Logs are from the same Session.",
             )
+            self.execution_info.configure(text="Log Selection Error", fg_color="#ED2939")
             return
 
         if not all(log_numbers[i] == i for i in range(len(log_numbers))):
@@ -216,13 +280,18 @@ class App(customtkinter.CTk):
                 "Log Selection Error",
                 f"Not all Logs of the Session are provided. Only the Logs {log_numbers} are selected.",
             )
+            self.execution_info.configure(text="Log Selection Error", fg_color="#ED2939")
             return
 
         data, columns = self._parse_logs(flight_logs)
         if data and columns and not self.results.empty:
             self.data_frame = structure_data(data, columns)
 
-            phases = calculate_approach_phases(self.data_frame)
+            with self.redirect_stdout_to_label():
+                phases = calculate_approach_phases(self.data_frame)
+
+            current_text = self.execution_info.cget("text")
+            self.execution_info.configure(text=current_text + "Plots of selected Flight-Logs created.", fg_color="#00ab41")
 
             self.toplevel_window = ToplevelWindow(self, phases)
 
@@ -245,6 +314,7 @@ class App(customtkinter.CTk):
                         "Log Selection Error",
                         "Last Log of the session is missing. Please select it and try again.",
                     )
+                    self.execution_info.configure(text="Log Selection Error", fg_color="#ED2939")
                     return None, None
 
                 # Iterate over each line in the file
@@ -277,6 +347,26 @@ class App(customtkinter.CTk):
         self.results["Manually modified Phases"] = "No"
 
         return data, columns
+
+    @contextmanager
+    def redirect_stdout_to_label(self):
+        def new_stdout_write(message):
+            current_text = self.execution_info.cget("text")
+
+            self.execution_info.configure(text=current_text + message)
+
+        class StdoutRedirector:
+            def write(self, message):
+                new_stdout_write(message)
+            def flush(self):
+                pass
+
+        sys.stdout = StdoutRedirector()
+
+        try:
+            yield
+        finally:
+            sys.stdout = sys.__stdout__
 
 
 if __name__ == "__main__":
