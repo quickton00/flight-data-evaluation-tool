@@ -1,3 +1,4 @@
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -81,6 +82,9 @@ def _plot_values(
             x_values.tolist(), y_values.tolist(), marker="", linestyle="-", linewidth=0.5, label=y_values.name
         )  # better without using pandas series
 
+    mpl.rcParams["path.simplify"] = True
+    mpl.rcParams["path.simplify_threshold"] = 1.0
+
     axvlines = []
     for value in phases:
         if value is not None:
@@ -107,6 +111,8 @@ def _plot_values(
 
 
 def create_figure(data_frame, phases, total_flight_errors):
+    mpl.style.use("fast")
+
     figure = plt.figure(figsize=(24, 12))  # Set figure size (width, height)
 
     plots = {

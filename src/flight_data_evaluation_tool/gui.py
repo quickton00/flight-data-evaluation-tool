@@ -2,7 +2,9 @@ import customtkinter
 from tkinter import filedialog, messagebox
 import os
 import sys
+import matplotlib.style
 from contextlib import contextmanager
+from functools import partial
 from datastructuring import structure_data, calculate_approach_phases
 from evaluation import create_dataframe_template_from_yaml, evaluate_flight_phases, calculate_phase_evaluation_values
 from plot import create_figure
@@ -45,12 +47,15 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         super().__init__(*args, **kwargs)
 
         self.master = master
-        self.phases = phases
+        self.phases = {}
+        for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
+            self.phases[phase] = phases[counter]
+
         self.title("Flight Plots")
 
-        total_flight_errors = calculate_phase_evaluation_values(self.master.data_frame, "Total", 0, 3, self.phases, self.master.results)
+        total_flight_errors = calculate_phase_evaluation_values(self.master.data_frame, "Total", 0, 3, list(self.phases.values()), self.master.results)
 
-        self.figure, self.axvlines = create_figure(self.master.data_frame, self.phases, total_flight_errors)
+        self.figure, self.axvlines = create_figure(self.master.data_frame, list(self.phases.values()), total_flight_errors)
 
         self.canvas = FigureCanvasTkAgg(self.figure, master=self)
 
@@ -62,19 +67,23 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         self.canvas.draw()
 
         # Add phase number fields
-        self.entries = []
+        self.entries = {}
         for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
-            entry = customtkinter.CTkLabel(master=self, text=f"{phase} {round(self.phases[counter], 4)}", fg_color="transparent", anchor="w")
-            self.entries.append(entry)
+            entry = customtkinter.CTkLabel(master=self, text=f"{phase} {self.phases[phase]}", fg_color="transparent", anchor="w")
+            self.entries[phase] = entry
             entry.grid(row=2, column=counter, sticky="sew")
 
         # Add sliders for Flight Phase
-        self.sliders = []
-        for counter, _ in enumerate(self.phases):
-            slider = customtkinter.CTkSlider(master=self, from_=0, to=self.master.data_frame.iloc[-1]["SimTime"], command=self.update_phase_lines)
-            self.sliders.append(slider)
-            slider.set(self.phases[counter])
+        self.sliders = {}
+        for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
+            slider = customtkinter.CTkSlider(master=self, from_=0, to=self.master.data_frame.iloc[-1]["SimTime"], command=partial(self.update_phase_lines, phase))
+            self.sliders[phase] = slider
+            slider.set(self.phases[phase])
             slider.grid(row=3, column=counter, sticky="sew")
+            slider._canvas.bind("<Button-1>", self.on_focus)
+                # Bind arrow keys for keyboard control
+            slider._canvas.bind("<Left>", partial(self.keyboard_slider_control, slider, phase, "left"))
+            slider._canvas.bind("<Right>", partial(self.keyboard_slider_control, slider, phase, "right"))
 
         # Add various buttons
         evaluate_button = customtkinter.CTkButton(
@@ -100,27 +109,42 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
-    def update_phase_lines(self, _):
+    def on_focus(self, event):
+        event.widget.focus_set()
+
+    def update_phase_lines(self, slider_id, value):
+        matplotlib.style.use("fast")
+
         self.master.results["Manually modified Phases"] = "Yes"
 
-        for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
-            self.phases[counter] = self.sliders[counter].get()
-            self.entries[counter].configure(text=f"{phase} {round(self.phases[counter], 4)}")
-            for ax in self.axvlines:
-                self.axvlines[ax][counter].set_xdata([self.phases[counter]])
+        nearest_value = min(self.master.data_frame["SimTime"], key=lambda x: abs(x - value))
+        self.sliders[slider_id].set(nearest_value)
+        self.phases[slider_id] = nearest_value
+        self.entries[slider_id].configure(text=f"{slider_id} {nearest_value}")
+        for ax in self.axvlines:
+            self.axvlines[ax][list(self.phases.values()).index(nearest_value)].set_xdata([self.phases[slider_id]])
 
         self.canvas.draw()
+
+    def keyboard_slider_control(self, slider, phase, direction, event):
+        # Get the current slider in focus
+        if slider.focus_get() == slider._canvas:
+            current_value = slider.get()
+            current_index = list(self.master.data_frame["SimTime"]).index(current_value)
+            if direction == "right":
+                new_index = current_index + 1
+            elif direction == "left":
+                new_index = current_index - 1
+
+            self.update_phase_lines(phase, self.master.data_frame["SimTime"].iloc[new_index])
+            #slider.set(self.master.data_frame["SimTime"].iloc[new_index])
 
     def evaluate_button_event(self):
         self.execution_info.configure(text="", fg_color="transparent")
 
-        # refactor timestamps of modified phases to nearest values in data_frame
-        for counter, _ in enumerate(self.phases):
-            self.phases[counter] = min(self.master.data_frame["SimTime"], key=lambda x: abs(x - self.phases[counter]))
-
         sorted = True
-        for counter, _ in enumerate(self.phases[0:-1]):
-            if self.phases[counter] > self.phases[counter+1]:
+        for counter, _ in enumerate(list(self.phases.values())[0:-1]):
+            if list(self.phases.values())[counter] > list(self.phases.values())[counter+1]:
                 sorted = False
 
         if not sorted:
@@ -140,7 +164,7 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         if not save_dir:
             return
 
-        evaluate_flight_phases(self.master.data_frame, self.phases, self.master.results, save_dir)
+        evaluate_flight_phases(self.master.data_frame, list(self.phases.values()), self.master.results, save_dir)
 
         self.execution_info.configure(text=f"EvaluationResults.txt created under {save_dir}.", fg_color="#00ab41")
 
