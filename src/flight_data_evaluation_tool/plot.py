@@ -12,6 +12,7 @@ def _plot_values(
     x_label: str,
     y_label: str,
     total_flight_errors: dict,
+    x_axis_type: str,
     plot_names=None,
     phases=[],
     corridor=None,
@@ -67,8 +68,15 @@ def _plot_values(
 
             # mark flight errors in respective plots
             if "." in column_name:
+                if x_axis_type == "SimTime":
+                    total_flight_errors_x_values = total_flight_errors[error_assignment[column_name]]
+                elif x_axis_type == "COG Pos.x [m]":
+                    total_flight_errors_x_values = flight_data[
+                        flight_data["SimTime"].isin(total_flight_errors[error_assignment[column_name]])
+                    ]["COG Pos.x [m]"].values
+
                 ax.scatter(
-                    total_flight_errors[error_assignment[column_name]],
+                    total_flight_errors_x_values,
                     flight_data[flight_data["SimTime"].isin(total_flight_errors[error_assignment[column_name]])][
                         column_name
                     ].to_list(),
@@ -99,7 +107,7 @@ def _plot_values(
 
     if corridor:
         ax.fill_between(
-            flight_data["SimTime"].tolist(),
+            flight_data[x_axis_type].tolist(),
             flight_data[corridor].tolist(),
             (flight_data[corridor] * -1).tolist(),
             color="#d3d3d3",
@@ -110,7 +118,7 @@ def _plot_values(
     return axvlines
 
 
-def create_figure(data_frame, phases, total_flight_errors):
+def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
     mpl.style.use("fast")
 
     figure = plt.figure(figsize=(24, 12))  # Set figure size (width, height)
@@ -182,19 +190,37 @@ def create_figure(data_frame, phases, total_flight_errors):
     axvlines = {}
     for counter, title in enumerate(plots, 1):
         ax = figure.add_subplot(240 + counter)
-        sub_axvlines = _plot_values(
-            ax,
-            data_frame,
-            data_frame["SimTime"],
-            plots[title][0],
-            title,
-            "Simulation time (s)",
-            plots[title][1],
-            total_flight_errors,
-            plots[title][2],
-            phases,
-            corridor=plots[title][3],
-        )
+
+        if x_axis_type == "SimTime":
+            sub_axvlines = _plot_values(
+                ax,
+                data_frame,
+                data_frame[x_axis_type],
+                plots[title][0],
+                title,
+                "Simulation time (s)",
+                plots[title][1],
+                total_flight_errors,
+                x_axis_type,
+                plots[title][2],
+                phases,
+                corridor=plots[title][3],
+            )
+        elif x_axis_type == "COG Pos.x [m]":
+            sub_axvlines = _plot_values(
+                ax,
+                data_frame,
+                data_frame[x_axis_type],
+                plots[title][0],
+                title,
+                "Axial distance Vessel Station [m]",
+                plots[title][1],
+                total_flight_errors,
+                x_axis_type,
+                plots[title][2],
+                data_frame[data_frame["SimTime"].isin(phases)]["COG Pos.x [m]"].values,
+                corridor=plots[title][3],
+            )
         axvlines[ax] = sub_axvlines
 
     plt.subplots_adjust(left=0.04, right=0.99)

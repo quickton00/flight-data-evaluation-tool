@@ -28,39 +28,17 @@ def calculate_approach_phases(data_frame: pd.DataFrame) -> list:
 
     # Alignment -> Approach phase
     try:
-        # strict criteria
         phases.append(
             data_frame[
-                (
-                    data_frame["Lateral Offset"] < data_frame["Approach Cone"] * 0.1
-                )  # lateral offset max. 10% from x-Axes relative to approach cone diameter
-                & (data_frame["Rot Angle.x [deg]"].abs() <= 1.5)  # angular pos within max angular deviation for docking
-                & (data_frame["Rot Angle.y [deg]"].abs() <= 1.5)  # angular pos within max angular deviation for docking
-                & (data_frame["Rot Angle.z [deg]"].abs() <= 1.5)  # angular pos within max angular deviation for docking
-                & (data_frame["COG Vel.x [m]"] <= -0.1)  # alignment phase ends with acceleration towards station
+                (data_frame["COG Vel.x [m]"] <= -0.1)  # alignment phase ends with acceleration towards station
                 & (
                     data_frame["COG Vel.x [m]"] > data_frame["COG Vel.x [m]"].shift(-1)
                 )  # velocity towards station has to increase
                 & (data_frame["SimTime"] > phases[-1])
             ].iloc[0]["SimTime"]
         )  # alignment has to be after checkout
-        print("Strict criteria between Alignment -> Approach phase is used.")
-
     except IndexError:
-        # soft criteria
-        try:
-            phases.append(
-                data_frame[
-                    (data_frame["COG Vel.x [m]"] <= -0.1)  # alignment phase ends with acceleration towards station
-                    & (
-                        data_frame["COG Vel.x [m]"] > data_frame["COG Vel.x [m]"].shift(-1)
-                    )  # velocity towards station has to increase
-                    & (data_frame["SimTime"] > phases[-1])
-                ].iloc[0]["SimTime"]
-            )  # alignment has to be after checkout
-            print("Soft criteria between Alignment -> Approach phase is used.")
-        except IndexError:
-            phases.append(None)
+        phases.append(None)
 
     # Approach -> Final Approach phase
     try:

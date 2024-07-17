@@ -53,9 +53,12 @@ class ToplevelWindow(customtkinter.CTkToplevel):
 
         self.title("Flight Plots")
 
+        x_axis_type = self.master.option_menu.get()
+        x_axis_type = {"Simulation time": "SimTime", "Axial distance Vessel Station": "COG Pos.x [m]"}[x_axis_type]
+
         total_flight_errors = calculate_phase_evaluation_values(self.master.data_frame, "Total", 0, 3, list(self.phases.values()), self.master.results)
 
-        self.figure, self.axvlines = create_figure(self.master.data_frame, list(self.phases.values()), total_flight_errors)
+        self.figure, self.axvlines = create_figure(self.master.data_frame, list(self.phases.values()), total_flight_errors, x_axis_type)
 
         self.canvas = FigureCanvasTkAgg(self.figure, master=self)
 
@@ -74,22 +77,29 @@ class ToplevelWindow(customtkinter.CTkToplevel):
             entry.grid(row=2, column=counter, sticky="sew")
 
         # Add sliders for Flight Phase
-        self.sliders = {}
-        for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
-            slider = customtkinter.CTkSlider(master=self, from_=0, to=self.master.data_frame.iloc[-1]["SimTime"], command=partial(self.update_phase_lines, phase))
-            self.sliders[phase] = slider
-            slider.set(self.phases[phase])
-            slider.grid(row=3, column=counter, sticky="sew")
-            slider._canvas.bind("<Button-1>", self.on_focus)
-                # Bind arrow keys for keyboard control
-            slider._canvas.bind("<Left>", partial(self.keyboard_slider_control, slider, phase, "left"))
-            slider._canvas.bind("<Right>", partial(self.keyboard_slider_control, slider, phase, "right"))
+        if x_axis_type == "SimTime":
+            self.sliders = {}
+            for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
+                slider = customtkinter.CTkSlider(master=self, from_=0, to=self.master.data_frame.iloc[-1]["SimTime"], command=partial(self.update_phase_lines, phase))
+                self.sliders[phase] = slider
+                slider.set(self.phases[phase])
+                slider.grid(row=3, column=counter, sticky="sew")
+                slider._canvas.bind("<Button-1>", self.on_focus)
+                    # Bind arrow keys for keyboard control
+                slider._canvas.bind("<Left>", partial(self.keyboard_slider_control, slider, phase, "left"))
+                slider._canvas.bind("<Right>", partial(self.keyboard_slider_control, slider, phase, "right"))
 
         # Add various buttons
-        evaluate_button = customtkinter.CTkButton(
-            master=self, text="Create EvaluationResults.txt", command=self.evaluate_button_event
-        )
-        evaluate_button.grid(row=4, column=0, padx=15, pady=15, sticky="s")
+        if x_axis_type == "SimTime":
+            evaluate_button = customtkinter.CTkButton(
+                master=self, text="Create EvaluationResults.txt", command=self.evaluate_button_event
+            )
+            evaluate_button.grid(row=4, column=0, padx=15, pady=15, sticky="s")
+        else:
+            self.switch_var = customtkinter.StringVar(value="on")
+            phases_switch = customtkinter.CTkSwitch(master=self, text="Phase lines", command=self.toggle_phases,
+                                 variable=self.switch_var, onvalue="on", offvalue="off")
+            phases_switch.grid(row=4, column=0, padx=15, pady=15, sticky="s")
 
         print_button = customtkinter.CTkButton(
             master=self, text="Save Plots individually", command=self.print_button_event
@@ -120,6 +130,9 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         nearest_value = min(self.master.data_frame["SimTime"], key=lambda x: abs(x - value))
         self.sliders[slider_id].set(nearest_value)
         self.phases[slider_id] = nearest_value
+
+        self.master.preconfigured_phases[self.master.session_identifier] = list(self.phases.values())
+
         self.entries[slider_id].configure(text=f"{slider_id} {nearest_value}")
         for ax in self.axvlines:
             self.axvlines[ax][list(self.phases.values()).index(nearest_value)].set_xdata([self.phases[slider_id]])
@@ -137,7 +150,6 @@ class ToplevelWindow(customtkinter.CTkToplevel):
                 new_index = current_index - 1
 
             self.update_phase_lines(phase, self.master.data_frame["SimTime"].iloc[new_index])
-            #slider.set(self.master.data_frame["SimTime"].iloc[new_index])
 
     def evaluate_button_event(self):
         self.execution_info.configure(text="", fg_color="transparent")
@@ -172,6 +184,13 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         self.lift()
         self.focus_force()
         self.after(10, self.focus_force)
+
+    def toggle_phases(self):
+        for ax in self.axvlines:
+            for vline in self.axvlines[ax]:
+                vline.set_visible({"on": True, "off": False}[self.switch_var.get()])
+
+        self.canvas.draw()
 
     def print_button_event(self):
         self.execution_info.configure(text="", fg_color="transparent")
@@ -208,6 +227,9 @@ class App(customtkinter.CTk):
     def __init__(self):
         super().__init__()
 
+        # store phases that where manually modified or previously calculated in a variable
+        self.preconfigured_phases = {}
+
         self.geometry("1400x800")
         self.title("Flight Data Evaluation Tool")
 
@@ -222,11 +244,11 @@ class App(customtkinter.CTk):
         self.delete_files_button = customtkinter.CTkButton(
             master=self, text="Remove All Flights", command=self.remove_all_files
         )
-        self.delete_files_button.grid(row=0, column=1, padx=15, pady=15, sticky="e")
+        self.delete_files_button.grid(row=0, column=3, padx=15, pady=15, sticky="e")
 
         # create scrollable checkbox frame
         self.scrollable_checkbox_frame = ScrollableCheckBoxFrame(master=self)
-        self.scrollable_checkbox_frame.grid(row=1, column=0, columnspan=3, padx=15, pady=15, sticky="nsew")
+        self.scrollable_checkbox_frame.grid(row=1, column=0, columnspan=4, padx=15, pady=15, sticky="nsew")
 
         # create evaluation button
         self.evaluate_button = customtkinter.CTkButton(
@@ -234,9 +256,17 @@ class App(customtkinter.CTk):
         )
         self.evaluate_button.grid(row=2, column=0, padx=15, pady=15, sticky="w")
 
+        # create plot option menu
+        settings_label = customtkinter.CTkLabel(master=self, text="Select the x-Axis for the plots:", fg_color="transparent")
+        settings_label.grid(row=2, column=1, padx=15, pady=15, sticky="w")
+
+        # create plot option menu
+        self.option_menu = customtkinter.CTkOptionMenu(master=self, values=["Simulation time", "Axial distance Vessel Station"])
+        self.option_menu.grid(row=2, column=2, padx=15, pady=15, sticky="w")
+
         # create execution info box
         self.execution_info = customtkinter.CTkLabel(master=self, text="", fg_color="transparent", width=30, corner_radius=15)
-        self.execution_info.grid(row=2, column=1, padx=15, pady=15)
+        self.execution_info.grid(row=2, column=3, padx=15, pady=15)
 
         self.toplevel_window = None
 
@@ -307,12 +337,21 @@ class App(customtkinter.CTk):
             self.execution_info.configure(text="Log Selection Error", fg_color="#ED2939")
             return
 
+        self.session_identifier=session_identifiers[0]
+        if self.session_identifier not in self.preconfigured_phases:
+            self.preconfigured_phases[self.session_identifier] = None
+
         data, columns = self._parse_logs(flight_logs)
         if data and columns and not self.results.empty:
             self.data_frame = structure_data(data, columns)
 
             with self.redirect_stdout_to_label():
-                phases = calculate_approach_phases(self.data_frame)
+                if self.preconfigured_phases[self.session_identifier] is None or self.option_menu.get() != "Axial distance Vessel Station":
+                    phases = calculate_approach_phases(self.data_frame)
+                    self.preconfigured_phases[self.session_identifier] = phases
+                else:
+                    phases = self.preconfigured_phases[self.session_identifier]
+                    print("Previously manually adjusted Flight Phases for the selected session used.")
 
             current_text = self.execution_info.cget("text")
             self.execution_info.configure(text=current_text + "Plots of selected Flight-Logs created.", fg_color="#00ab41")
