@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from functools import partial
 from datastructuring import structure_data, calculate_approach_phases
 from evaluation import create_dataframe_template_from_yaml, evaluate_flight_phases, calculate_phase_evaluation_values
-from plot import create_figure
+from plot import create_figure, create_heatmaps
 from matplotlib.transforms import Bbox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
@@ -41,8 +41,33 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
     def get_checked_items(self):
         return [self.checkbox_dict[checkbox] for checkbox in self.checkbox_dict.keys() if checkbox.get() == 1]
 
+class HeatMapWindow(customtkinter.CTkToplevel):
+    def __init__(self, master, data_frame, phases, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-class ToplevelWindow(customtkinter.CTkToplevel):
+        self.title("Flight Phase Heatmaps")
+
+        figure = create_heatmaps(data_frame, phases)
+
+        self.canvas = FigureCanvasTkAgg(figure, master=self)
+
+        toolbar = NavigationToolbar2Tk(self.canvas, self)
+        toolbar.update()
+        toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
+
+        self.canvas.get_tk_widget().grid(row=1, column=0, columnspan=2, sticky="nsew")
+        self.canvas.draw()
+
+        # lift TopLevelWindow in front
+        self.lift()
+        self.focus_force()
+        self.after(10, self.focus_force)
+
+        # Make the canvas and toolbar resize with the window
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure((0, 1), weight=1)
+
+class PlotWindow(customtkinter.CTkToplevel):
     def __init__(self, master, phases, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -56,7 +81,12 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         x_axis_type = self.master.option_menu.get()
         x_axis_type = {"Simulation time": "SimTime", "Axial distance Vessel Station": "COG Pos.x [m]"}[x_axis_type]
 
-        total_flight_errors = calculate_phase_evaluation_values(self.master.data_frame, "Total", 0, 3, list(self.phases.values()), self.master.results)
+        try:
+            total_flight_errors = calculate_phase_evaluation_values(self.master.data_frame, "Total", 0, 3, list(self.phases.values()), self.master.results)
+            _failed_error_calculation_ = False
+        except ValueError:
+            total_flight_errors = {"THC.x": [], "THC.y": [], "THC.z": [], "RHC.x": [], "RHC.y": [], "RHC.z": []}
+            _failed_error_calculation_ = True
 
         self.figure, self.axvlines = create_figure(self.master.data_frame, list(self.phases.values()), total_flight_errors, x_axis_type)
 
@@ -106,9 +136,17 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         )
         print_button.grid(row=4, column=1, padx=15, pady=15, sticky="s")
 
+        # Button for Heatmap Calculation
+        heatmap_button = customtkinter.CTkButton(
+                master=self, text="Show Heatmaps for Flight Phases", command=self.heatmap_button_event
+            )
+        heatmap_button.grid(row=4, column=2, padx=15, pady=15, sticky="s")
+
         # create execution info box
         self.execution_info = customtkinter.CTkLabel(master=self, text="", fg_color="transparent", corner_radius=15, wraplength=350)
         self.execution_info.grid(row=4, column=3)
+        if _failed_error_calculation_:
+            self.execution_info.configure(text="Flight Errors could not be determined. Check if scenario is a docking scenario!", fg_color="#ED2939")
 
         # lift TopLevelWindow in front
         self.lift()
@@ -185,6 +223,9 @@ class ToplevelWindow(customtkinter.CTkToplevel):
         self.focus_force()
         self.after(10, self.focus_force)
 
+    def heatmap_button_event(self):
+        HeatMapWindow(self, self.master.data_frame, list(self.phases.values()))
+
     def toggle_phases(self):
         for ax in self.axvlines:
             for vline in self.axvlines[ax]:
@@ -205,9 +246,9 @@ class ToplevelWindow(customtkinter.CTkToplevel):
             # Manually adjust the extent to add extra space to the left and bottom
             xmin, ymin, xmax, ymax = extent.extents
             xmin -= 0.8     #left
-            xmax += 0.1     #right
+            xmax += 0.05    #right
             ymin -= 0.5     #bottom
-            ymax += 0.3     #top
+            ymax += 0.05    #top
 
             # Create a new extent with the adjusted coordinates
             extent = Bbox([[xmin, ymin], [xmax, ymax]])
@@ -356,7 +397,7 @@ class App(customtkinter.CTk):
             current_text = self.execution_info.cget("text")
             self.execution_info.configure(text=current_text + "Plots of selected Flight-Logs created.", fg_color="#00ab41")
 
-            self.toplevel_window = ToplevelWindow(self, phases)
+            self.toplevel_window = PlotWindow(self, phases)
 
     def on_closing(self):
         if messagebox.askokcancel("Quit", "Do you want to quit?"):

@@ -36,6 +36,9 @@ def _plot_values(
     :type plot_names: dict, optional
     """
 
+    mpl.rcParams["path.simplify"] = True
+    mpl.rcParams["path.simplify_threshold"] = 1.0
+
     error_assignment = {
         "COG Pos.x [m]": "THC.x",
         "COG Pos.y [m]": "THC.y",
@@ -89,9 +92,6 @@ def _plot_values(
         ax.plot(
             x_values.tolist(), y_values.tolist(), marker="", linestyle="-", linewidth=0.5, label=y_values.name
         )  # better without using pandas series
-
-    mpl.rcParams["path.simplify"] = True
-    mpl.rcParams["path.simplify_threshold"] = 1.0
 
     axvlines = []
     for value in phases:
@@ -181,7 +181,7 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
         ],
         "Angle to Port": [
             data_frame["Angle to Port"],
-            "Angle",
+            "Angle (keep under 15° for visibility)",
             None,
             None,
         ],
@@ -192,37 +192,144 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
         ax = figure.add_subplot(240 + counter)
 
         if x_axis_type == "SimTime":
-            sub_axvlines = _plot_values(
-                ax,
-                data_frame,
-                data_frame[x_axis_type],
-                plots[title][0],
-                title,
-                "Simulation time (s)",
-                plots[title][1],
-                total_flight_errors,
-                x_axis_type,
-                plots[title][2],
-                phases,
-                corridor=plots[title][3],
-            )
+            _x_label_ = "Simulation time (s)"
+            _phases_ = phases
         elif x_axis_type == "COG Pos.x [m]":
-            sub_axvlines = _plot_values(
-                ax,
-                data_frame,
-                data_frame[x_axis_type],
-                plots[title][0],
-                title,
-                "Axial distance Vessel Station [m]",
-                plots[title][1],
-                total_flight_errors,
-                x_axis_type,
-                plots[title][2],
-                data_frame[data_frame["SimTime"].isin(phases)]["COG Pos.x [m]"].values,
-                corridor=plots[title][3],
-            )
+            _x_label_ = "Axial distance Vessel Station [m]"
+            _phases_ = data_frame[data_frame["SimTime"].isin(phases)]["COG Pos.x [m]"].values
+
+        sub_axvlines = _plot_values(
+            ax,
+            data_frame,
+            data_frame[x_axis_type],
+            plots[title][0],
+            title,
+            _x_label_,
+            plots[title][1],
+            total_flight_errors,
+            x_axis_type,
+            plots[title][2],
+            _phases_,
+            corridor=plots[title][3],
+        )
+
         axvlines[ax] = sub_axvlines
 
     plt.subplots_adjust(left=0.04, right=0.99)
 
     return figure, axvlines
+
+
+def create_heatmaps(flight_data: pd.DataFrame, phases: list):
+    mpl.style.use("fast")
+    mpl.rcParams["path.simplify"] = True
+    mpl.rcParams["path.simplify_threshold"] = 1.0
+
+    figure = plt.figure(figsize=(12, 12))  # Set figure size (width, height)
+
+    titles = ["Alignment Phase", "Approach Phase", "Final Approach", "Total Flight"]
+
+    for counter, _ in enumerate(phases):
+        if counter != len(phases) - 1:
+            phase_start = phases[counter]
+            phase_end = phases[counter + 1]
+        else:
+            phase_start = flight_data["SimTime"].iloc[0]
+            phase_end = phases[counter]
+
+        ax = figure.add_subplot(220 + counter + 1)
+
+        filtered_flight_data = flight_data[
+            (flight_data["SimTime"] >= phase_start) & (flight_data["SimTime"] < phase_end)
+        ]
+
+        start_circle = plt.Circle(
+            (0, 0),
+            radius=filtered_flight_data["Approach Cone"].iloc[0],
+            fill=False,
+            linestyle="--",
+            linewidth=1,
+            color="green",
+            label="Approach Cone at Phase Start",
+        )
+        ax.add_patch(start_circle)
+        end_circle = plt.Circle(
+            (0, 0),
+            radius=filtered_flight_data["Approach Cone"].iloc[-1],
+            fill=False,
+            linestyle="--",
+            linewidth=1,
+            color="red",
+            label="Approach Cone at Phase End",
+        )
+        ax.add_patch(end_circle)
+
+        ax.scatter(
+            filtered_flight_data["COG Pos.z [m]"],
+            filtered_flight_data["COG Pos.y [m]"],
+            s=1,
+            color="grey",
+        )
+
+        ax.scatter(
+            filtered_flight_data["COG Pos.z [m]"].iloc[0],
+            filtered_flight_data["COG Pos.y [m]"].iloc[0],
+            s=10,
+            color="green",
+            label="Vessel Pos. at Phase Start",
+            marker="x",
+        )
+
+        ax.scatter(
+            filtered_flight_data["COG Pos.z [m]"].iloc[-1],
+            filtered_flight_data["COG Pos.y [m]"].iloc[-1],
+            s=10,
+            color="red",
+            label="Vessel Pos. at Phase End",
+            marker="x",
+        )
+
+        xabs_max = abs(max(ax.get_xlim(), key=abs))
+        yabs_max = abs(max(ax.get_ylim(), key=abs))
+
+        if xabs_max > yabs_max:
+            ax.set_xlim(xmin=-xabs_max, xmax=xabs_max)
+            ax.set_ylim(ymin=-xabs_max, ymax=xabs_max)
+        else:
+            ax.set_xlim(xmin=-yabs_max, xmax=yabs_max)
+            ax.set_ylim(ymin=-yabs_max, ymax=yabs_max)
+
+        ax.set_title(titles[counter])
+        ax.grid(linestyle="dotted", linewidth=1)
+        ax.legend(loc="upper right")
+
+        # set the x-spine (see below for more info on `set_position`)
+        ax.spines["left"].set_position("zero")
+
+        # turn off the right spine/ticks
+        ax.spines["right"].set_color("none")
+        ax.yaxis.tick_left()
+
+        # set the y-spine
+        ax.spines["bottom"].set_position("zero")
+
+        # turn off the top spine/ticks
+        ax.spines["top"].set_color("none")
+        ax.xaxis.tick_bottom()
+
+        # Remove zero from axis labels
+        x_ticks = ax.get_xticks().tolist()
+        y_ticks = ax.get_yticks().tolist()
+        if 0 in x_ticks:
+            x_ticks.remove(0)
+        if 0 in y_ticks:
+            y_ticks.remove(0)
+        ax.set_xticks(x_ticks)
+        ax.set_yticks(y_ticks)
+
+        ax.set_xlabel("Trans. Offset Z", loc="right")
+        ax.set_ylabel("Trans. Offset Y", loc="bottom")
+
+        ax.set_aspect("equal")
+
+    return figure
