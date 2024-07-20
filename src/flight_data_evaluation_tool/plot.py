@@ -301,7 +301,7 @@ def create_heatmaps(flight_data: pd.DataFrame, phases: list):
 
         ax.set_title(titles[counter])
         ax.grid(linestyle="dotted", linewidth=1)
-        ax.legend(loc="upper right")
+        ax.legend(loc="upper right", prop={"size": 8})
 
         # set the x-spine (see below for more info on `set_position`)
         ax.spines["left"].set_position("zero")

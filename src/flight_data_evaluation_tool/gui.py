@@ -1,5 +1,5 @@
 import customtkinter
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, PhotoImage
 import os
 import sys
 import matplotlib.style
@@ -11,6 +11,7 @@ from plot import create_figure, create_heatmaps
 from matplotlib.transforms import Bbox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
+icon_path = r"src\flight_data_evaluation_tool\icon.ico"
 
 class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
     def __init__(self, master, path_list=None, command=None, **kwargs):
@@ -47,16 +48,23 @@ class HeatMapWindow(customtkinter.CTkToplevel):
 
         self.title("Flight Phase Heatmaps")
 
-        figure = create_heatmaps(data_frame, phases)
+        self.iconbitmap(default=icon_path)
 
-        self.canvas = FigureCanvasTkAgg(figure, master=self)
+        self.figure = create_heatmaps(data_frame, phases)
+
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self)
 
         toolbar = NavigationToolbar2Tk(self.canvas, self)
         toolbar.update()
-        toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
+        toolbar.grid(row=0, column=0, sticky="ew")
 
-        self.canvas.get_tk_widget().grid(row=1, column=0, columnspan=2, sticky="nsew")
+        self.canvas.get_tk_widget().grid(row=1, column=0, sticky="nsew")
         self.canvas.draw()
+
+        print_button = customtkinter.CTkButton(
+            master=self, text="Save Plots individually", command=self.print_button_event
+        )
+        print_button.grid(row=2, column=0, padx=15, pady=15, sticky="s")
 
         # lift TopLevelWindow in front
         self.lift()
@@ -66,6 +74,39 @@ class HeatMapWindow(customtkinter.CTkToplevel):
         # Make the canvas and toolbar resize with the window
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure((0, 1), weight=1)
+
+        # Because CTkToplevel currently is bugged on windows and doesn't check if a user specified icon is set we need
+        # to set the icon again after 200ms
+        if sys.platform.startswith("win"):
+            self.after(200, lambda: self.iconbitmap(icon_path))
+
+    def print_button_event(self):
+        save_dir = filedialog.askdirectory(title="Select Save Folder")
+        if not save_dir:
+            return
+
+        for ax in self.figure.axes:
+            extent = ax.get_window_extent().transformed(self.figure.dpi_scale_trans.inverted())
+
+            # Manually adjust the extent to add extra space to the left and bottom
+            xmin, ymin, xmax, ymax = extent.extents
+            xmin -= 0.1     #left
+            xmax += 0.1    #right
+            ymin -= 0.1     #bottom
+            ymax += 0.3    #top
+
+            # Create a new extent with the adjusted coordinates
+            extent = Bbox([[xmin, ymin], [xmax, ymax]])
+
+            title = ax.get_title()
+            self.figure.savefig(os.path.join(save_dir, f'{title}.png'), bbox_inches=extent, dpi = 400)
+
+        self.master.toplevel_window.execution_info.configure(text=f"Heatmaps individually saved as 'png' under {save_dir}.", fg_color="#00ab41")
+
+        # lift TopLevelWindow in front
+        self.lift()
+        self.focus_force()
+        self.after(10, self.focus_force)
 
 class PlotWindow(customtkinter.CTkToplevel):
     def __init__(self, master, phases, *args, **kwargs):
@@ -78,8 +119,10 @@ class PlotWindow(customtkinter.CTkToplevel):
 
         self.title("Flight Plots")
 
+        self.iconbitmap(default=icon_path)
+
         x_axis_type = self.master.option_menu.get()
-        x_axis_type = {"Simulation time": "SimTime", "Axial distance Vessel Station": "COG Pos.x [m]"}[x_axis_type]
+        x_axis_type = {"Simulation time": "SimTime", "Axial distance Vessel-Station": "COG Pos.x [m]"}[x_axis_type]
 
         try:
             total_flight_errors = calculate_phase_evaluation_values(self.master.data_frame, "Total", 0, 3, list(self.phases.values()), self.master.results)
@@ -157,6 +200,11 @@ class PlotWindow(customtkinter.CTkToplevel):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
+        # Because CTkToplevel currently is bugged on windows and doesn't check if a user specified icon is set we need
+        # to set the icon again after 200ms
+        if sys.platform.startswith("win"):
+            self.after(200, lambda: self.iconbitmap(icon_path))
+
     def on_focus(self, event):
         event.widget.focus_set()
 
@@ -225,6 +273,8 @@ class PlotWindow(customtkinter.CTkToplevel):
 
     def heatmap_button_event(self):
         HeatMapWindow(self, self.master.data_frame, list(self.phases.values()))
+
+        self.execution_info.configure(text=f"Heatmaps created.", fg_color="#00ab41")
 
     def toggle_phases(self):
         for ax in self.axvlines:
@@ -474,8 +524,12 @@ class App(customtkinter.CTk):
 
 
 if __name__ == "__main__":
-    customtkinter.set_appearance_mode("dark")
+    customtkinter.set_appearance_mode("system")
     app = App()
+
+    # icon = PhotoImage(file = r"src\flight_data_evaluation_tool\icon.png")
+    # app.iconphoto(True, icon)
+    app.iconbitmap(default=icon_path)
 
     app.protocol("WM_DELETE_WINDOW", app.on_closing)
     app.mainloop()
