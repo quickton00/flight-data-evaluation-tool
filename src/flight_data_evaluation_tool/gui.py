@@ -14,6 +14,20 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 icon_path = r"src\flight_data_evaluation_tool\icon.ico"
 
 class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
+    """
+    A scrollable frame containing checkboxes for each flight log.
+
+    Parameters
+    ----------
+    master : tkinter.Widget
+        The parent widget.
+    path_list : list, optional
+        A list of file paths to be added as checkboxes.
+    command : function, optional
+        The command to be executed when a checkbox is clicked.
+    **kwargs : dict
+        Additional arguments to be passed to the CTkScrollableFrame.
+    """
     def __init__(self, master, path_list=None, command=None, **kwargs):
         super().__init__(master, **kwargs)
 
@@ -25,6 +39,14 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
                 self.add_log(path)
 
     def add_log(self, path):
+        """
+        Adds a new checkbox for the provided file path.
+
+        Parameters
+        ----------
+        path : str
+            The path of the file to be added.
+        """
         checkbox = customtkinter.CTkCheckBox(self, text=os.path.basename(path))
 
         if self.command is not None:
@@ -34,15 +56,42 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
         self.checkbox_dict[checkbox] = path
 
     def remove_all_logs(self):
+        """
+        Removes all checkboxes from the frame.
+        """
         for checkbox in self.checkbox_dict.keys():
             checkbox.destroy()
 
         self.checkbox_dict = {}
 
     def get_checked_items(self):
+        """
+        Returns a list of file paths for checked items.
+
+        Returns
+        -------
+        list
+            A list of file paths for the checked checkboxes.
+        """
         return [self.checkbox_dict[checkbox] for checkbox in self.checkbox_dict.keys() if checkbox.get() == 1]
 
 class HeatMapWindow(customtkinter.CTkToplevel):
+    """
+    A window for displaying heatmaps of flight phases.
+
+    Parameters
+    ----------
+    master : tkinter.Widget
+        The parent widget.
+    data_frame : pandas.DataFrame
+        The flight data.
+    phases : list
+        The flight phases for which heatmaps will be generated.
+    *args : tuple
+        Additional positional arguments.
+    **kwargs : dict
+        Additional keyword arguments.
+    """
     def __init__(self, master, data_frame, phases, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -81,6 +130,10 @@ class HeatMapWindow(customtkinter.CTkToplevel):
             self.after(200, lambda: self.iconbitmap(icon_path))
 
     def print_button_event(self):
+        """
+        Saves the heatmaps as individual PNG files in the selected directory.
+        """
+
         save_dir = filedialog.askdirectory(title="Select Save Folder")
         if not save_dir:
             return
@@ -109,6 +162,20 @@ class HeatMapWindow(customtkinter.CTkToplevel):
         self.after(10, self.focus_force)
 
 class PlotWindow(customtkinter.CTkToplevel):
+    """
+    A window for displaying plots of flight data.
+
+    Parameters
+    ----------
+    master : tkinter.Widget
+        The parent widget.
+    phases : list
+        The flight phases for which plots will be created.
+    *args : tuple
+        Additional positional arguments.
+    **kwargs : dict
+        Additional keyword arguments.
+    """
     def __init__(self, master, phases, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -122,7 +189,7 @@ class PlotWindow(customtkinter.CTkToplevel):
         self.iconbitmap(default=icon_path)
 
         x_axis_type = self.master.option_menu.get()
-        x_axis_type = {"Simulation time": "SimTime", "Axial distance Vessel-Station": "COG Pos.x [m]"}[x_axis_type]
+        x_axis_type = {"Simulation time": "SimTime", "Axial distance Vessel Station": "COG Pos.x [m]"}[x_axis_type]
 
         try:
             total_flight_errors = calculate_phase_evaluation_values(self.master.data_frame, "Total", 0, 3, list(self.phases.values()), self.master.results)
@@ -209,6 +276,16 @@ class PlotWindow(customtkinter.CTkToplevel):
         event.widget.focus_set()
 
     def update_phase_lines(self, slider_id, value):
+        """
+        Updates the vertical line for the specified phase.
+
+        Parameters
+        ----------
+        phase : str
+            The phase to be updated.
+        value : float
+            The new value for the phase.
+        """
         matplotlib.style.use("fast")
 
         self.master.results["Manually modified Phases"] = "Yes"
@@ -238,6 +315,10 @@ class PlotWindow(customtkinter.CTkToplevel):
             self.update_phase_lines(phase, self.master.data_frame["SimTime"].iloc[new_index])
 
     def evaluate_button_event(self):
+        """
+        Creates an evaluation file based on the phase sliders.
+        """
+
         self.execution_info.configure(text="", fg_color="transparent")
 
         sorted = True
@@ -272,11 +353,17 @@ class PlotWindow(customtkinter.CTkToplevel):
         self.after(10, self.focus_force)
 
     def heatmap_button_event(self):
+        """
+        Generate the Heatmaps of the flight according to slider position.
+        """
         HeatMapWindow(self, self.master.data_frame, list(self.phases.values()))
 
         self.execution_info.configure(text=f"Heatmaps created.", fg_color="#00ab41")
 
     def toggle_phases(self):
+        """
+        Toggles the visibility of the phase lines.
+        """
         for ax in self.axvlines:
             for vline in self.axvlines[ax]:
                 vline.set_visible({"on": True, "off": False}[self.switch_var.get()])
@@ -284,6 +371,9 @@ class PlotWindow(customtkinter.CTkToplevel):
         self.canvas.draw()
 
     def print_button_event(self):
+        """
+        Saves the plot as PNG files in the selected directory.
+        """
         self.execution_info.configure(text="", fg_color="transparent")
 
         save_dir = filedialog.askdirectory(title="Select Save Folder")
@@ -352,7 +442,7 @@ class App(customtkinter.CTk):
         settings_label.grid(row=2, column=1, padx=15, pady=15, sticky="w")
 
         # create plot option menu
-        self.option_menu = customtkinter.CTkOptionMenu(master=self, values=["Simulation time", "Axial distance Vessel Station"])
+        self.option_menu = customtkinter.CTkOptionMenu(master=self, values=["Simulation time", "Axial distance Vessel-Station"])
         self.option_menu.grid(row=2, column=2, padx=15, pady=15, sticky="w")
 
         # create execution info box
@@ -444,10 +534,15 @@ class App(customtkinter.CTk):
                     phases = self.preconfigured_phases[self.session_identifier]
                     print("Previously manually adjusted Flight Phases for the selected session used.")
 
-            current_text = self.execution_info.cget("text")
-            self.execution_info.configure(text=current_text + "Plots of selected Flight-Logs created.", fg_color="#00ab41")
-
             self.toplevel_window = PlotWindow(self, phases)
+
+            current_text = self.execution_info.cget("text")
+            if "BACKUP" in current_text:
+                color = "#ED2939" # red
+                self.toplevel_window.execution_info.configure(text=current_text.rstrip(), fg_color=color)
+            else:
+                color = "#00ab41" # green
+            self.execution_info.configure(text=current_text + "Plots of selected Flight-Logs created.", fg_color=color)
 
     def on_closing(self):
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
@@ -527,8 +622,6 @@ if __name__ == "__main__":
     customtkinter.set_appearance_mode("system")
     app = App()
 
-    # icon = PhotoImage(file = r"src\flight_data_evaluation_tool\icon.png")
-    # app.iconphoto(True, icon)
     app.iconbitmap(default=icon_path)
 
     app.protocol("WM_DELETE_WINDOW", app.on_closing)

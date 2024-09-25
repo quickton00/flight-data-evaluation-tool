@@ -185,15 +185,17 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             else:
                 results[f"{controller}{coordinate}AvgTime_{phase}"] = 0
 
-    # calculation for "THCxErr_{phase}" and "THCxIndErr_{phase}" except x
+    # calculation for "THCxErr_{phase}" and "THCxIndErr_{phase}"
     flight_errors = flight_data[
         (
             (
+                # Further Acceleration despite being already above Ideal Approach Velocity towards station
                 (flight_data["COG Vel.x [m]"] < flight_data["Ideal Approach Vel"])
                 & (flight_data["THC.x"] < 0)
                 & (flight_data["THC.x"].shift(periods=1, fill_value=0) == 0)
             )
             | (
+                # Acceleration above ideal Approach Velocity towards station
                 (flight_data["COG Vel.x [m]"] < flight_data["Ideal Approach Vel"])
                 & (flight_data["THC.x"] < 0)
                 & (
@@ -202,6 +204,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                 )
             )
             | (
+                # Acceleration away from the station
                 (flight_data["COG Vel.x [m]"] > 0)
                 & (flight_data["THC.x"] > 0)
                 & (flight_data["THC.x"].shift(periods=1, fill_value=0) == 0)
@@ -228,10 +231,12 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             "RHC": f"Rot Angle.{coordinate} [deg]",
         }.items():
             if controller == "THC" and coordinate == "x":
+                # see previous calculations
                 continue
             if controller == "RHC":
                 start_condition = (
                     (
+                        # leaving zero offset with maneuver
                         (flight_data[value_name] == 0)
                         & (flight_data[f"{controller}.{coordinate}"] != 0)
                         & (
@@ -240,6 +245,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                         )
                     )
                     | (
+                        # increasing offset with maneuver positive direction
                         (flight_data[value_name] > 0)
                         & (flight_data[f"{controller}.{coordinate}"] > 0)
                         & (
@@ -248,6 +254,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                         )
                     )
                     | (
+                        # increasing offset with maneuver negative direction
                         (flight_data[value_name] < 0)
                         & (flight_data[f"{controller}.{coordinate}"] < 0)
                         & (
@@ -285,6 +292,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             elif controller == "THC":
                 start_condition = (
                     (
+                        # leaving zero offset with maneuver
                         (flight_data[value_name] == 0)
                         & (flight_data[f"{controller}.{coordinate}"] != 0)
                         & (
@@ -293,6 +301,8 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                         )
                     )
                     | (
+                        # increasing offset with maneuver positive direction
+                        # breaking (decreasing velocity in the current direction) is not considered as error
                         (flight_data[value_name] > 0)
                         & (flight_data[f"{controller}.{coordinate}"] > 0)
                         & (flight_data[f"COG Vel.{coordinate} [m]"] >= 0)
@@ -303,6 +313,8 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                         )
                     )
                     | (
+                        # increasing offset with maneuver negative direction
+                        # breaking (decreasing velocity in the current direction) is not considered as error
                         (flight_data[value_name] < 0)
                         & (flight_data[f"{controller}.{coordinate}"] < 0)
                         & (flight_data[f"COG Vel.{coordinate} [m]"] <= 0)

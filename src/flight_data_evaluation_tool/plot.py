@@ -107,9 +107,9 @@ def _plot_values(
 
     if corridor:
         ax.fill_between(
-            flight_data[x_axis_type].tolist(),
-            flight_data[corridor].tolist(),
-            (flight_data[corridor] * -1).tolist(),
+            flight_data.sort_values(by=[x_axis_type])[x_axis_type].tolist(),
+            flight_data.sort_values(by=[x_axis_type])[corridor].tolist(),
+            (flight_data.sort_values(by=[x_axis_type])[corridor] * -1).tolist(),
             color="#d3d3d3",
             label=corridor,
         )
@@ -179,9 +179,9 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
             None,
             None,
         ],
-        "Angle to Port": [
+        "Angle between periscope and port-axis": [
             data_frame["Angle to Port"],
-            "Angle (keep under 15° for visibility)",
+            "Angle (docking port is visible when under 15°)",
             None,
             None,
         ],
