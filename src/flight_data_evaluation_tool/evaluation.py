@@ -46,8 +46,8 @@ def start_stop_condition_evaluation(
 
 
 def export_data(flight_data, save_path):
-    flight_data.transpose().to_csv(save_path, sep="\t", index=True)
-    # flight_data.to_csv(save_path, sep=";", index=False, na_rep="NI")
+    # flight_data.transpose().to_csv(save_path, sep="\t", index=True)   # for testing purposes
+    flight_data.to_csv(save_path, sep=";", index=False, na_rep="NI")
 
 
 def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_index, flight_phase_timestamps, results):
@@ -331,9 +331,10 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
 
                 stop_condition = (
                     (
-                        (flight_data[value_name] == 0)
+                        (flight_data[value_name] != 0)
                         & (flight_data[f"{controller}.{coordinate}"] == 0)
                         & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) != 0)
+                        & (flight_data[value_name].shift(periods=1, fill_value=0) == 0)
                     )
                     | (
                         (flight_data[value_name] > 0)

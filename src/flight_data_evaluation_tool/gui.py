@@ -17,16 +17,21 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
     """
     A scrollable frame containing checkboxes for each flight log.
 
-    Parameters
-    ----------
-    master : tkinter.Widget
-        The parent widget.
-    path_list : list, optional
-        A list of file paths to be added as checkboxes.
-    command : function, optional
-        The command to be executed when a checkbox is clicked.
-    **kwargs : dict
-        Additional arguments to be passed to the CTkScrollableFrame.
+    :param master: The parent widget.
+    :type master: tkinter.Widget
+    :param path_list: A list of file paths to be added as checkboxes, defaults to None
+    :type path_list: list, optional
+    :param command: The command to be executed when a checkbox is clicked, defaults to None
+    :type command: function, optional
+    :param kwargs: Additional arguments to be passed to the CTkScrollableFrame.
+    :type kwargs: dict
+    :method add_log: Adds a new checkbox for the provided file path.
+    :param path: The path of the file to be added.
+    :type path: str
+    :method remove_all_logs: Removes all checkboxes from the frame.
+    :method get_checked_items: Returns a list of file paths for checked items.
+    :return: A list of file paths for the checked checkboxes.
+    :rtype: list
     """
     def __init__(self, master, path_list=None, command=None, **kwargs):
         super().__init__(master, **kwargs)
@@ -273,6 +278,16 @@ class PlotWindow(customtkinter.CTkToplevel):
             self.after(200, lambda: self.iconbitmap(icon_path))
 
     def on_focus(self, event):
+        """
+        Handles the focus event for a widget.
+
+        This method is called when a widget gains focus. It sets the focus to the
+        widget that triggered the event.
+
+        Args:
+            event (tkinter.Event): The event object containing information about
+            the focus event.
+        """
         event.widget.focus_set()
 
     def update_phase_lines(self, slider_id, value):
@@ -405,7 +420,45 @@ class PlotWindow(customtkinter.CTkToplevel):
 
 
 class App(customtkinter.CTk):
+    """
+    A GUI application for evaluating flight data logs using customtkinter.
+    Attributes:
+        preconfigured_phases (dict): Stores phases that were manually modified or previously calculated.
+        file_button (customtkinter.CTkButton): Button to add flight log files.
+        delete_files_button (customtkinter.CTkButton): Button to remove all flight log files.
+        scrollable_checkbox_frame (ScrollableCheckBoxFrame): Frame containing checkboxes for each flight log file.
+        evaluate_button (customtkinter.CTkButton): Button to evaluate the selected flight logs.
+        option_menu (customtkinter.CTkOptionMenu): Option menu to select the x-axis for the plots.
+        execution_info (customtkinter.CTkLabel): Label to display execution information.
+        toplevel_window (PlotWindow or None): Window to display the plots of the evaluated flight logs.
+        session_identifier (str): Identifier for the current session.
+        data_frame (pd.DataFrame): DataFrame containing structured flight log data.
+        results (pd.DataFrame): DataFrame template created from YAML configuration.
+    Methods:
+        __init__(): Initializes the GUI application.
+        add_files(): Opens a file dialog to select flight log files and adds them to the checkbox frame.
+        remove_all_files(): Removes all flight log files from the checkbox frame.
+        evaluate_button_event(): Evaluates the selected flight logs and displays the results in a new window.
+        on_closing(): Handles the closing event of the application.
+        _parse_logs(flight_logs): Parses the selected flight log files and returns the data and columns.
+        redirect_stdout_to_label(): Context manager to redirect stdout to the execution_info label.
+    """
     def __init__(self):
+        """
+        Initializes the main GUI window for the Flight Data Evaluation Tool.
+        This method sets up the main window's geometry, title, and layout configuration.
+        It also creates and places various widgets including buttons, labels, and a scrollable
+        checkbox frame.
+        Attributes:
+            preconfigured_phases (dict): Stores phases that were manually modified or previously calculated.
+            file_button (CTkButton): Button to add flight files.
+            delete_files_button (CTkButton): Button to remove all flight files.
+            scrollable_checkbox_frame (ScrollableCheckBoxFrame): Frame containing scrollable checkboxes.
+            evaluate_button (CTkButton): Button to evaluate the selected flight.
+            option_menu (CTkOptionMenu): Dropdown menu to select the x-axis for plots.
+            execution_info (CTkLabel): Label to display execution information.
+            toplevel_window (None): Placeholder for a toplevel window, if needed.
+        """
         super().__init__()
 
         # store phases that where manually modified or previously calculated in a variable
@@ -452,14 +505,44 @@ class App(customtkinter.CTk):
         self.toplevel_window = None
 
     def add_files(self):
+        """
+        Opens a file dialog to select multiple files and adds their paths to the scrollable checkbox frame.
+
+        This method uses the filedialog.askopenfilenames() function to open a file selection dialog,
+        allowing the user to select multiple files. The selected file paths are then added to the
+        scrollable checkbox frame by calling the add_log method on the scrollable_checkbox_frame object.
+        """
         file_paths = filedialog.askopenfilenames(title="Select Files")
         for file_path in file_paths:
             self.scrollable_checkbox_frame.add_log(file_path)
 
     def remove_all_files(self):
+        """
+        Removes all files from the scrollable checkbox frame.
+
+        This method calls the `remove_all_logs` method on the `scrollable_checkbox_frame`
+        to clear all the logs/files displayed in the GUI.
+        """
         self.scrollable_checkbox_frame.remove_all_logs()
 
     def evaluate_button_event(self):
+        """
+        Handles the event triggered by the evaluate button.
+        This method performs the following steps:
+        1. Clears the execution info label.
+        2. Retrieves and sorts the selected flight logs.
+        3. Validates the selected flight logs for correct format and naming conventions.
+        4. Ensures all selected logs are from the same session and that all logs in the session are provided.
+        5. Parses the logs and structures the data.
+        6. Calculates or retrieves preconfigured approach phases.
+        7. Opens a new window to plot the data.
+        If any validation fails, an error message is displayed and the method returns early.
+        Raises:
+            ValueError: If the last part of the log filename is not a numerical identifier.
+        Returns:
+            None
+        """
+
         self.execution_info.configure(text="", fg_color="transparent")
         flight_logs = self.scrollable_checkbox_frame.get_checked_items()
         flight_logs = sorted(flight_logs, key=os.path.basename)
@@ -545,13 +628,34 @@ class App(customtkinter.CTk):
             self.execution_info.configure(text=current_text + "Plots of selected Flight-Logs created.", fg_color=color)
 
     def on_closing(self):
+        """
+        Handles the event when the GUI window is being closed.
+
+        This method prompts the user with a confirmation dialog to confirm if they want to quit the application.
+        If the user confirms, it checks if there is an existing top-level window and if it exists, it quits that window.
+        Finally, it quits the main application window.
+        """
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
             if self.toplevel_window is not None and self.toplevel_window.winfo_exists():
                 self.toplevel_window.quit()
             self.quit()
 
-    # this function doesnt have to be a class function; ToDo
     def _parse_logs(self, flight_logs):
+        """
+        Parses flight log files and extracts relevant information into a structured format.
+        Args:
+            flight_logs (list of str): List of file paths to the flight log files.
+        Returns:
+            tuple: A tuple containing:
+            - data (list of list of float): Parsed numerical data from the logs.
+            - columns (filter): Filtered column names from the logs.
+        Raises:
+            None
+        Notes:
+            - If the last log file does not end with "# Log stopped.", an error message is shown and the function returns None, None.
+            - The function updates self.results with extracted metadata from the logs.
+            - Handles a specific bug in the logger by replacing "MFDRightMyROT.m11" with "MFDRight; MyROT.m11".
+        """
         data = []
         self.results = create_dataframe_template_from_yaml()
 
@@ -599,6 +703,23 @@ class App(customtkinter.CTk):
 
     @contextmanager
     def redirect_stdout_to_label(self):
+        """
+        Redirects the standard output (stdout) to a label widget in the GUI.
+        This method temporarily replaces the standard output stream with a custom
+        stream that appends any printed messages to a label widget (`self.execution_info`).
+        This allows for capturing and displaying printed output directly in the GUI.
+        Usage:
+            with self.redirect_stdout_to_label():
+                # Any print statements here will be redirected to the label
+                print("This will appear in the label")
+        The redirection is automatically reverted back to the original stdout
+        when exiting the context manager.
+        Note:
+            This method uses a context manager to ensure that stdout is properly
+            restored even if an exception occurs within the block.
+        Raises:
+            AttributeError: If `self.execution_info` does not have a `cget` or `configure` method.
+        """
         def new_stdout_write(message):
             current_text = self.execution_info.cget("text")
 

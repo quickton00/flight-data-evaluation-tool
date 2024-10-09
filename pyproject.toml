@@ -7,7 +7,7 @@ name =  "flight-data-evaluation-tool"
 authors = [
     {name = "Anton Woy", email = "anton.woy@tum.de"},
 ]
-description = "Sample Python Project for creating a new Python Module"
+description = "Flight Data Evaluation Tool is a Python package that provides a GUI for the evaluation of flight data."
 readme = "README.md"
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -21,6 +21,11 @@ classifiers = [
 ]
 requires-python = ">=3.8.1"
 dynamic = ["version"]
+
+[project.dependencies]
+customtkinter = "*"
+matplotlib = "*"
+pandas = "*"
 
 [project.optional-dependencies]
 spark = [
@@ -45,6 +50,9 @@ test = [
     "pytest-github-actions-annotate-failures",
     "shellcheck-py==0.9.0.2"
 ]
+
+[project.scripts]
+start = "flight_data_evaluation_tool.gui:main"
 
 [project.urls]
 Documentation = "https://github.com/microsoft/python-package-template/tree/main#readme"
