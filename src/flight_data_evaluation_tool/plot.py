@@ -51,7 +51,7 @@ def _plot_values(
         "Rot Angle.z [deg]": "RHC.z",
         "Rot. Rate.x [deg/s]": "RHC.x",
         "Rot. Rate.y [deg/s]": "RHC.y",
-        "Rot. Rate.Z [deg/s]": "RHC.z",
+        "Rot. Rate.z [deg/s]": "RHC.z",
         "THC.x": "THC.x",
         "THC.y": "THC.y",
         "THC.z": "THC.z",
@@ -119,6 +119,16 @@ def _plot_values(
 
 
 def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
+    """
+    Creates a matplotlib figure with multiple subplots based on the provided data.
+    Parameters:
+    data_frame (pd.DataFrame): The data frame containing the flight data.
+    phases (list): A list of phase times or positions to be marked on the x-axis.
+    total_flight_errors (dict): A dictionary containing total flight errors for each phase.
+    x_axis_type (str): The type of x-axis to use ('SimTime' or 'COG Pos.x [m]').
+    Returns:
+    tuple: A tuple containing the created figure and a dictionary of vertical lines for each subplot.
+    """
     mpl.style.use("fast")
 
     figure = plt.figure(figsize=(24, 12))  # Set figure size (width, height)
@@ -152,12 +162,12 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
             "Max Rot Angle",
         ],
         "Rotation Velocities": [
-            data_frame[["Rot. Rate.x [deg/s]", "Rot. Rate.y [deg/s]", "Rot. Rate.Z [deg/s]"]],
+            data_frame[["Rot. Rate.x [deg/s]", "Rot. Rate.y [deg/s]", "Rot. Rate.z [deg/s]"]],
             "Rotational Rate (°/s)",
             {
                 "Rot. Rate.x [deg/s]": "Roll Rate",
                 "Rot. Rate.y [deg/s]": "Yaw Rate",
-                "Rot. Rate.Z [deg/s]": "Pitch Rate",
+                "Rot. Rate.z [deg/s]": "Pitch Rate",
             },
             "Max Rot Velocity",
         ],
@@ -221,6 +231,18 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
 
 
 def create_heatmaps(flight_data: pd.DataFrame, phases: list):
+    """
+    Create heatmaps for different flight phases.
+    This function generates a figure with subplots representing different phases of a flight.
+    Each subplot contains scatter plots of the vessel's position and circles representing the
+    approach cone at the start and end of each phase.
+    Parameters:
+    flight_data (pd.DataFrame): DataFrame containing flight data with columns "SimTime",
+                                "Approach Cone", "COG Pos.z [m]", and "COG Pos.y [m]".
+    phases (list): List of phase start times. The last element is the end time of the last phase.
+    Returns:
+    matplotlib.figure.Figure: The generated figure containing the heatmaps.
+    """
     mpl.style.use("fast")
     mpl.rcParams["path.simplify"] = True
     mpl.rcParams["path.simplify_threshold"] = 1.0

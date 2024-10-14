@@ -7,6 +7,14 @@ import os
 
 
 def create_dataframe_template_from_yaml(yaml_file=r"src\flight_data_evaluation_tool\results_template.yaml"):
+    """
+    Creates a pandas DataFrame template based on the structure defined in a YAML file.
+    Args:
+        yaml_file (str): Path to the YAML file containing the DataFrame template configuration.
+                         Defaults to "src\\flight_data_evaluation_tool\\results_template.yaml".
+    Returns:
+        pd.DataFrame: An empty DataFrame with columns and data types defined in the YAML file.
+    """
     with open(yaml_file, "r") as f:
         config = yaml.safe_load(f)
 
@@ -20,8 +28,28 @@ def create_dataframe_template_from_yaml(yaml_file=r"src\flight_data_evaluation_t
 
 
 def start_stop_condition_evaluation(
-    flight_data, start_condition, stop_condition, start_index, stop_index, flight_phase_timestamps
+    flight_data, start_condition, stop_condition, start_index, stop_index, flight_phase_timestamps, controller=""
 ):
+    """
+    Evaluates the start and stop conditions for flight data and returns the corresponding timestamps.
+    The calculated timestamps are used to determine the length between two corresponding conditions.
+    Parameters:
+    flight_data (DataFrame): A data frame containing the flight data.
+    start_condition (str): The condition to determine the start of the steering.
+    stop_condition (str): The condition to determine the stop of the steering.
+    start_index (int): The index in flight_phase_timestamps to use if start timestamps of flight phases are missing.
+    stop_index (int): The index in flight_phase_timestamps to use if stop timestamps of flight phases are missing.
+    flight_phase_timestamps (list): A list of timestamps of the flight phases.
+    controller (str, optional): The name of the controller for logging purposes. Defaults to "".
+    Returns:
+    tuple: A tuple containing two lists:
+        - start_steering_timestamps (list): Timestamps where steering starts.
+        - stop_steering_timestamps (list): Timestamps where steering stops.
+    Notes:
+    - If the number of start timestamps is less than the number of stop timestamps, the start timestamp list is corrected by inserting a timestamp from flight_phase_timestamps.
+    - If the number of start timestamps is greater than the number of stop timestamps, the stop timestamp list is corrected by appending a timestamp from flight_phase_timestamps.
+    - If the number of start and stop timestamps still do not match, backup values for stop timestamps are calculated.
+    """
     start_steering_timestamps = []
     stop_steering_timestamps = []
 
@@ -38,19 +66,63 @@ def start_stop_condition_evaluation(
         stop_steering_timestamps.append(flight_phase_timestamps[stop_index])
 
     if len(stop_steering_timestamps) != len(start_steering_timestamps):
-        raise ValueError(
-            f"Different number of start ({len(start_steering_timestamps)})/stop ({len(stop_steering_timestamps)}) timestamps found. Check your start/stop condition"
+        print(
+            f"{controller}: Different number of start ({len(start_steering_timestamps)})/stop ({len(stop_steering_timestamps)}) timestamps found. Check your start/stop condition"
         )
+        print("Backup values for stop timestamps are calculated for 'Fuel on Error' value.")
+        flight_data["Shifted_SimTime"] = flight_data["SimTime"].shift(-1)
+        filtered_data = flight_data[flight_data["SimTime"].isin(start_steering_timestamps)]
+        stop_steering_timestamps = filtered_data["Shifted_SimTime"].to_list()
 
     return (start_steering_timestamps, stop_steering_timestamps)
 
 
-def export_data(flight_data, save_path):
+def export_data(flight_data, save_path, overwrite=True):
+    """
+    Exports flight data to a CSV file.
+
+    Parameters:
+    flight_data (DataFrame): The flight data to be exported.
+    save_path (str): The file path where the CSV file will be saved.
+    overwrite (bool, optional): Whether to overwrite the existing file. Default is True.
+
+    Returns:
+    None
+    """
     # flight_data.transpose().to_csv(save_path, sep="\t", index=True)   # for testing purposes
-    flight_data.to_csv(save_path, sep=";", index=False, na_rep="NI")
+    if overwrite:
+        flight_data.to_csv(save_path, sep=";", index=False, na_rep="NI")
+    else:
+        with open(save_path, "a", newline="") as f:
+            flight_data.to_csv(f, sep=";", index=False, na_rep="NI", header=False)
 
 
 def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_index, flight_phase_timestamps, results):
+    """
+    Calculate various evaluation metrics for a specific flight phase or the total flight.
+    Parameters:
+    -----------
+    flight_data : pandas.DataFrame
+        DataFrame containing flight data with columns such as "SimTime", "Lateral Offset", "Approach Cone",
+        "Tank mass [kg]", "Angle to Port", "THC.x", "THC.y", "THC.z", "RHC.x", "RHC.y", "RHC.z", "COG Vel.x [m]",
+        "Ideal Approach Vel", "COG Pos.x [m]", "COG Pos.y [m]", "COG Pos.z [m]", "Rot Angle.x [deg]",
+        "Rot Angle.y [deg]", "Rot Angle.z [deg]", "Rot. Rate.x [deg/s]", "Rot. Rate.y [deg/s]", "Rot. Rate.z [deg/s]".
+    phase : str
+        The flight phase for which the evaluation metrics are being calculated.
+    start_index : int
+        The index in flight_phase_timestamps indicating the start of the phase.
+    stop_index : int
+        The index in flight_phase_timestamps indicating the end of the phase.
+    flight_phase_timestamps : list
+        List of timestamps corresponding to different phases of the flight.
+    results : pandas.DataFrame
+        DataFrame to store the calculated evaluation metrics.
+    Returns:
+    --------
+    total_flight_errors : dict
+        Dictionary containing lists of timestamps where errors occurred for the "Total" phase. Keys are
+        "{controller}.{coordinate}" and values are lists of timestamps.
+    """
     total_flight_errors = {}
 
     # Calculation for "Start_{phase}"
@@ -239,15 +311,12 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                         # leaving zero offset with maneuver
                         (flight_data[value_name] == 0)
                         & (flight_data[f"{controller}.{coordinate}"] != 0)
-                        & (
-                            (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
-                            | (flight_data[value_name].shift(periods=1, fill_value=0) != 0)
-                        )
                     )
                     | (
                         # increasing offset with maneuver positive direction
                         (flight_data[value_name] > 0)
                         & (flight_data[f"{controller}.{coordinate}"] > 0)
+                        # & (flight_data[f"Rot. Rate.{coordinate} [deg/s]"] >= 0)       #consider usage analog to THC, but then change also stop condition
                         & (
                             (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
                             | (flight_data[value_name].shift(periods=1, fill_value=0) <= 0)
@@ -257,6 +326,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                         # increasing offset with maneuver negative direction
                         (flight_data[value_name] < 0)
                         & (flight_data[f"{controller}.{coordinate}"] < 0)
+                        # & (flight_data[f"Rot. Rate.{coordinate} [deg/s]"] <= 0)       #consider usage analog to THC, but then change also stop condition
                         & (
                             (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
                             | (flight_data[value_name].shift(periods=1, fill_value=0) >= 0)
@@ -269,9 +339,8 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
 
                 stop_condition = (
                     (
-                        (flight_data[value_name] == 0)
-                        & (flight_data[f"{controller}.{coordinate}"] == 0)
-                        & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) != 0)
+                        (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) != 0)
+                        & (flight_data[value_name].shift(periods=1, fill_value=0) == 0)
                     )
                     | (
                         (flight_data[value_name] > 0)
@@ -295,10 +364,6 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                         # leaving zero offset with maneuver
                         (flight_data[value_name] == 0)
                         & (flight_data[f"{controller}.{coordinate}"] != 0)
-                        & (
-                            (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) == 0)
-                            | (flight_data[value_name].shift(periods=1, fill_value=0) != 0)
-                        )
                     )
                     | (
                         # increasing offset with maneuver positive direction
@@ -332,7 +397,6 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                 stop_condition = (
                     (
                         (flight_data[value_name] != 0)
-                        & (flight_data[f"{controller}.{coordinate}"] == 0)
                         & (flight_data[f"{controller}.{coordinate}"].shift(periods=1, fill_value=0) != 0)
                         & (flight_data[value_name].shift(periods=1, fill_value=0) == 0)
                     )
@@ -378,6 +442,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             )
 
             # claculation for "Fuel_on_Error", could be changed to be phase specific
+            # stop conditions not perfect for RHC (Rework possible, see als start_stop_condition_evaluation())
             if phase == "Total":
                 (start_steering_timestamps, stop_steering_timestamps) = start_stop_condition_evaluation(
                     flight_data,
@@ -386,6 +451,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                     start_index,
                     stop_index,
                     flight_phase_timestamps,
+                    f"{controller}.{coordinate}",
                 )
 
                 results[f"Fuel_on_Error"] = results[f"Fuel_on_Error"] + sum(
@@ -519,7 +585,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
         "Pitch": "Rot Angle.z [deg]",
         "RollRate": "Rot. Rate.x [deg/s]",
         "YawRate": "Rot. Rate.y [deg/s]",
-        "PitchRate": "Rot. Rate.Z [deg/s]",
+        "PitchRate": "Rot. Rate.z [deg/s]",
     }.items():
         filtered_flight_data = flight_data[
             (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
@@ -533,7 +599,18 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
     return total_flight_errors
 
 
-def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, save_dir):
+def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, save_dir, overwrite=True):
+    """
+    Evaluates different phases of a flight based on provided flight data and timestamps, and updates the results dictionary.
+    Args:
+        flight_data (DataFrame): The flight data containing various parameters recorded during the flight.
+        flight_phase_timestamps (list): A list of timestamps indicating the start and end of different flight phases.
+        results (dict): A dictionary to store the evaluation results.
+        save_dir (str): The directory where the evaluation results will be saved.
+        overwrite (bool, optional): Flag indicating whether to overwrite existing results file. Defaults to True.
+    Returns:
+        None
+    """
     start_index = 0
     stop_index = 1
     results["Fuel_on_Error"] = 0
@@ -553,4 +630,4 @@ def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, save_d
         "Lateral Offset"
     ]
 
-    export_data(results, os.path.join(save_dir, "EvaluationResults.txt"))
+    export_data(results, os.path.join(save_dir, "EvaluationResults.txt"), overwrite)

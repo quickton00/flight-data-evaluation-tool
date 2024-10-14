@@ -331,8 +331,23 @@ class PlotWindow(customtkinter.CTkToplevel):
 
     def evaluate_button_event(self):
         """
-        Creates an evaluation file based on the phase sliders.
+        Handles the event triggered by the evaluate button.
+        This method performs the following steps:
+        1. Clears the execution info display.
+        2. Checks if the phase timestamps are in ascending order.
+           - If not, shows an error message and exits the method.
+        3. Prompts the user to select a directory to save the evaluation results.
+           - If no directory is selected, exits the method.
+        4. Constructs the file path for the evaluation results.
+           - If the file already exists, prompts the user to decide whether to overwrite or append to the file.
+        5. Calls the `evaluate_flight_phases` function to perform the evaluation.
+        6. Updates the execution info display with the result of the evaluation.
+        Raises:
+            ValueError: If the phase timestamps are not in ascending order.
+        Returns:
+            None
         """
+
 
         self.execution_info.configure(text="", fg_color="transparent")
 
@@ -358,7 +373,20 @@ class PlotWindow(customtkinter.CTkToplevel):
         if not save_dir:
             return
 
-        evaluate_flight_phases(self.master.data_frame, list(self.phases.values()), self.master.results, save_dir)
+        eval_file_path = os.path.join(save_dir, "EvaluationResults.txt")
+        if os.path.exists(eval_file_path):
+            response = messagebox.askyesno(
+                "File Exists",
+                "EvaluationResults.txt already exists. Do you want to add the data to this file?"
+            )
+            if response is True:
+                overwrite = False
+            else:
+                overwrite = True
+        else:
+            overwrite = True
+
+        evaluate_flight_phases(self.master.data_frame, list(self.phases.values()), self.master.results, save_dir, overwrite)
 
         self.execution_info.configure(text=f"EvaluationResults.txt created under {save_dir}.", fg_color="#00ab41")
 

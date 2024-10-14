@@ -103,6 +103,16 @@ def _calculate_backup_approach_phases(data_frame: pd.DataFrame, phases: list) ->
 
 
 def angle_to_docking_port(front, back):
+    """
+    Calculate the angle between the direction vector from the back to the front of the spacecraft
+    and the vector from the periscope of the spacecraft to the origin.
+    Parameters:
+    front (array-like): Coordinates of the front of the spacecraft.
+    back (array-like): Coordinates of the back of the spacecraft.
+    Returns:
+    float: The angle in degrees between the direction vector and the vector to the origin.
+           Returns NaN if the direction vector or the vector to the origin cannot be normalized.
+    """
     # Calculate the direction vector from back to front
     direction_vector = np.array(front) - np.array(back)
 
@@ -127,7 +137,30 @@ def angle_to_docking_port(front, back):
 
 
 def structure_data(data, columns):
+    """
+    Transforms and structures flight data into a pandas DataFrame with additional calculated values.
+    Args:
+        data (list of dict): The raw flight data to be structured.
+        columns (list of str): The column names for the DataFrame.
+    Returns:
+        pandas.DataFrame: The structured DataFrame with transformed coordinates and additional calculated values.
+    The function performs the following operations:
+    1. Converts the raw data into a pandas DataFrame with specified columns.
+    2. Renames columns to handle naming inconsistencies.
+    3. Transforms the coordinate system from OrbVLCS to IssTPLCS.
+    4. Calculates additional value sets:
+        - Lateral offset and velocity off COG Position from x-Axis.
+        - Ideal approach velocity.
+        - Angle from vessel line of sight to ISS-Port.
+        - Approach cone for plotting.
+        - Maximum allowed rotational angle.
+        - Maximum allowed rotational velocity.
+    """
     data_frame = pd.DataFrame(data, columns=columns)
+
+    data_frame = data_frame.rename(
+        columns={"Rot. Rate.Z [deg/s]": "Rot. Rate.z [deg/s]"}
+    )  # handle naming bug in logger
 
     # coordinate system transformation from OrbVLCS to IssTPLCS
     data_frame = data_frame.rename(columns={"THC.x": "THC.z", "THC.z": "THC.x", "RHC.x": "RHC.z", "RHC.z": "RHC.x"})
