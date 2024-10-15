@@ -3,15 +3,29 @@ from tkinter import filedialog, messagebox, PhotoImage
 import os
 import sys
 import matplotlib.style
+from matplotlib.transforms import Bbox
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from contextlib import contextmanager
 from functools import partial
-from datastructuring import structure_data, calculate_approach_phases
-from evaluation import create_dataframe_template_from_yaml, evaluate_flight_phases, calculate_phase_evaluation_values
-from plot import create_figure, create_heatmaps
-from matplotlib.transforms import Bbox
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
-icon_path = r"src\flight_data_evaluation_tool\icon.ico"
+try:
+    from flight_data_evaluation_tool.datastructuring import structure_data, calculate_approach_phases
+    from flight_data_evaluation_tool.evaluation import (
+        create_dataframe_template_from_yaml,
+        evaluate_flight_phases,
+        calculate_phase_evaluation_values,
+    )
+    from flight_data_evaluation_tool.plot import create_figure, create_heatmaps
+except ImportError:
+    from datastructuring import structure_data, calculate_approach_phases
+    from evaluation import (
+        create_dataframe_template_from_yaml,
+        evaluate_flight_phases,
+        calculate_phase_evaluation_values,
+    )
+    from plot import create_figure, create_heatmaps
+
 
 class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
     """
@@ -33,6 +47,7 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
     :return: A list of file paths for the checked checkboxes.
     :rtype: list
     """
+
     def __init__(self, master, path_list=None, command=None, **kwargs):
         super().__init__(master, **kwargs)
 
@@ -80,6 +95,7 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
         """
         return [self.checkbox_dict[checkbox] for checkbox in self.checkbox_dict.keys() if checkbox.get() == 1]
 
+
 class HeatMapWindow(customtkinter.CTkToplevel):
     """
     A window for displaying heatmaps of flight phases.
@@ -97,6 +113,7 @@ class HeatMapWindow(customtkinter.CTkToplevel):
     **kwargs : dict
         Additional keyword arguments.
     """
+
     def __init__(self, master, data_frame, phases, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -148,23 +165,26 @@ class HeatMapWindow(customtkinter.CTkToplevel):
 
             # Manually adjust the extent to add extra space to the left and bottom
             xmin, ymin, xmax, ymax = extent.extents
-            xmin -= 0.1     #left
-            xmax += 0.1    #right
-            ymin -= 0.1     #bottom
-            ymax += 0.3    #top
+            xmin -= 0.1  # left
+            xmax += 0.1  # right
+            ymin -= 0.1  # bottom
+            ymax += 0.3  # top
 
             # Create a new extent with the adjusted coordinates
             extent = Bbox([[xmin, ymin], [xmax, ymax]])
 
             title = ax.get_title()
-            self.figure.savefig(os.path.join(save_dir, f'{title}.png'), bbox_inches=extent, dpi = 400)
+            self.figure.savefig(os.path.join(save_dir, f"{title}.png"), bbox_inches=extent, dpi=400)
 
-        self.master.toplevel_window.execution_info.configure(text=f"Heatmaps individually saved as 'png' under {save_dir}.", fg_color="#00ab41")
+        self.master.toplevel_window.execution_info.configure(
+            text=f"Heatmaps individually saved as 'png' under {save_dir}.", fg_color="#00ab41"
+        )
 
         # lift TopLevelWindow in front
         self.lift()
         self.focus_force()
         self.after(10, self.focus_force)
+
 
 class PlotWindow(customtkinter.CTkToplevel):
     """
@@ -181,12 +201,15 @@ class PlotWindow(customtkinter.CTkToplevel):
     **kwargs : dict
         Additional keyword arguments.
     """
+
     def __init__(self, master, phases, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.master = master
         self.phases = {}
-        for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
+        for counter, phase in enumerate(
+            ["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]
+        ):
             self.phases[phase] = phases[counter]
 
         self.title("Flight Plots")
@@ -194,16 +217,20 @@ class PlotWindow(customtkinter.CTkToplevel):
         self.iconbitmap(default=icon_path)
 
         x_axis_type = self.master.option_menu.get()
-        x_axis_type = {"Simulation time": "SimTime", "Axial distance Vessel Station": "COG Pos.x [m]"}[x_axis_type]
+        x_axis_type = {"Simulation time": "SimTime", "Axial distance Vessel-Station": "COG Pos.x [m]"}[x_axis_type]
 
         try:
-            total_flight_errors = calculate_phase_evaluation_values(self.master.data_frame, "Total", 0, 3, list(self.phases.values()), self.master.results)
+            total_flight_errors = calculate_phase_evaluation_values(
+                self.master.data_frame, "Total", 0, 3, list(self.phases.values()), self.master.results
+            )
             _failed_error_calculation_ = False
         except ValueError:
             total_flight_errors = {"THC.x": [], "THC.y": [], "THC.z": [], "RHC.x": [], "RHC.y": [], "RHC.z": []}
             _failed_error_calculation_ = True
 
-        self.figure, self.axvlines = create_figure(self.master.data_frame, list(self.phases.values()), total_flight_errors, x_axis_type)
+        self.figure, self.axvlines = create_figure(
+            self.master.data_frame, list(self.phases.values()), total_flight_errors, x_axis_type
+        )
 
         self.canvas = FigureCanvasTkAgg(self.figure, master=self)
 
@@ -216,21 +243,32 @@ class PlotWindow(customtkinter.CTkToplevel):
 
         # Add phase number fields
         self.entries = {}
-        for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
-            entry = customtkinter.CTkLabel(master=self, text=f"{phase} {self.phases[phase]}", fg_color="transparent", anchor="w")
+        for counter, phase in enumerate(
+            ["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]
+        ):
+            entry = customtkinter.CTkLabel(
+                master=self, text=f"{phase} {self.phases[phase]}", fg_color="transparent", anchor="w"
+            )
             self.entries[phase] = entry
             entry.grid(row=2, column=counter, sticky="sew")
 
         # Add sliders for Flight Phase
         if x_axis_type == "SimTime":
             self.sliders = {}
-            for counter, phase in enumerate(["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]):
-                slider = customtkinter.CTkSlider(master=self, from_=0, to=self.master.data_frame.iloc[-1]["SimTime"], command=partial(self.update_phase_lines, phase))
+            for counter, phase in enumerate(
+                ["Alignment Start (s):", "Approach Start (s):", "Final Approach Start (s):", "Docking Time (s):"]
+            ):
+                slider = customtkinter.CTkSlider(
+                    master=self,
+                    from_=0,
+                    to=self.master.data_frame.iloc[-1]["SimTime"],
+                    command=partial(self.update_phase_lines, phase),
+                )
                 self.sliders[phase] = slider
                 slider.set(self.phases[phase])
                 slider.grid(row=3, column=counter, sticky="sew")
                 slider._canvas.bind("<Button-1>", self.on_focus)
-                    # Bind arrow keys for keyboard control
+                # Bind arrow keys for keyboard control
                 slider._canvas.bind("<Left>", partial(self.keyboard_slider_control, slider, phase, "left"))
                 slider._canvas.bind("<Right>", partial(self.keyboard_slider_control, slider, phase, "right"))
 
@@ -242,8 +280,14 @@ class PlotWindow(customtkinter.CTkToplevel):
             evaluate_button.grid(row=4, column=0, padx=15, pady=15, sticky="s")
         else:
             self.switch_var = customtkinter.StringVar(value="on")
-            phases_switch = customtkinter.CTkSwitch(master=self, text="Phase lines", command=self.toggle_phases,
-                                 variable=self.switch_var, onvalue="on", offvalue="off")
+            phases_switch = customtkinter.CTkSwitch(
+                master=self,
+                text="Phase lines",
+                command=self.toggle_phases,
+                variable=self.switch_var,
+                onvalue="on",
+                offvalue="off",
+            )
             phases_switch.grid(row=4, column=0, padx=15, pady=15, sticky="s")
 
         print_button = customtkinter.CTkButton(
@@ -253,15 +297,20 @@ class PlotWindow(customtkinter.CTkToplevel):
 
         # Button for Heatmap Calculation
         heatmap_button = customtkinter.CTkButton(
-                master=self, text="Show Heatmaps for Flight Phases", command=self.heatmap_button_event
-            )
+            master=self, text="Show Heatmaps for Flight Phases", command=self.heatmap_button_event
+        )
         heatmap_button.grid(row=4, column=2, padx=15, pady=15, sticky="s")
 
         # create execution info box
-        self.execution_info = customtkinter.CTkLabel(master=self, text="", fg_color="transparent", corner_radius=15, wraplength=350)
+        self.execution_info = customtkinter.CTkLabel(
+            master=self, text="", fg_color="transparent", corner_radius=15, wraplength=350
+        )
         self.execution_info.grid(row=4, column=3)
         if _failed_error_calculation_:
-            self.execution_info.configure(text="Flight Errors could not be determined. Check if scenario is a docking scenario!", fg_color="#ED2939")
+            self.execution_info.configure(
+                text="Flight Errors could not be determined. Check if scenario is a docking scenario!",
+                fg_color="#ED2939",
+            )
 
         # lift TopLevelWindow in front
         self.lift()
@@ -348,12 +397,11 @@ class PlotWindow(customtkinter.CTkToplevel):
             None
         """
 
-
         self.execution_info.configure(text="", fg_color="transparent")
 
         sorted = True
         for counter, _ in enumerate(list(self.phases.values())[0:-1]):
-            if list(self.phases.values())[counter] > list(self.phases.values())[counter+1]:
+            if list(self.phases.values())[counter] > list(self.phases.values())[counter + 1]:
                 sorted = False
 
         if not sorted:
@@ -376,8 +424,7 @@ class PlotWindow(customtkinter.CTkToplevel):
         eval_file_path = os.path.join(save_dir, "EvaluationResults.txt")
         if os.path.exists(eval_file_path):
             response = messagebox.askyesno(
-                "File Exists",
-                "EvaluationResults.txt already exists. Do you want to add the data to this file?"
+                "File Exists", "EvaluationResults.txt already exists. Do you want to add the data to this file?"
             )
             if response is True:
                 overwrite = False
@@ -386,7 +433,9 @@ class PlotWindow(customtkinter.CTkToplevel):
         else:
             overwrite = True
 
-        evaluate_flight_phases(self.master.data_frame, list(self.phases.values()), self.master.results, save_dir, overwrite)
+        evaluate_flight_phases(
+            self.master.data_frame, list(self.phases.values()), self.master.results, save_dir, overwrite
+        )
 
         self.execution_info.configure(text=f"EvaluationResults.txt created under {save_dir}.", fg_color="#00ab41")
 
@@ -428,18 +477,20 @@ class PlotWindow(customtkinter.CTkToplevel):
 
             # Manually adjust the extent to add extra space to the left and bottom
             xmin, ymin, xmax, ymax = extent.extents
-            xmin -= 0.8     #left
-            xmax += 0.05    #right
-            ymin -= 0.5     #bottom
-            ymax += 0.05    #top
+            xmin -= 0.8  # left
+            xmax += 0.05  # right
+            ymin -= 0.5  # bottom
+            ymax += 0.05  # top
 
             # Create a new extent with the adjusted coordinates
             extent = Bbox([[xmin, ymin], [xmax, ymax]])
 
             title = ax.get_title()
-            self.figure.savefig(os.path.join(save_dir, f'{title}.png'), bbox_inches=extent, dpi = 400)
+            self.figure.savefig(os.path.join(save_dir, f"{title}.png"), bbox_inches=extent, dpi=400)
 
-            self.execution_info.configure(text=f"Plots individually saved as 'png' under {save_dir}.", fg_color="#00ab41")
+            self.execution_info.configure(
+                text=f"Plots individually saved as 'png' under {save_dir}.", fg_color="#00ab41"
+            )
 
         # lift TopLevelWindow in front
         self.lift()
@@ -471,6 +522,7 @@ class App(customtkinter.CTk):
         _parse_logs(flight_logs): Parses the selected flight log files and returns the data and columns.
         redirect_stdout_to_label(): Context manager to redirect stdout to the execution_info label.
     """
+
     def __init__(self):
         """
         Initializes the main GUI window for the Flight Data Evaluation Tool.
@@ -519,15 +571,21 @@ class App(customtkinter.CTk):
         self.evaluate_button.grid(row=2, column=0, padx=15, pady=15, sticky="w")
 
         # create plot option menu
-        settings_label = customtkinter.CTkLabel(master=self, text="Select the x-Axis for the plots:", fg_color="transparent")
+        settings_label = customtkinter.CTkLabel(
+            master=self, text="Select the x-Axis for the plots:", fg_color="transparent"
+        )
         settings_label.grid(row=2, column=1, padx=15, pady=15, sticky="w")
 
         # create plot option menu
-        self.option_menu = customtkinter.CTkOptionMenu(master=self, values=["Simulation time", "Axial distance Vessel-Station"])
+        self.option_menu = customtkinter.CTkOptionMenu(
+            master=self, values=["Simulation time", "Axial distance Vessel-Station"]
+        )
         self.option_menu.grid(row=2, column=2, padx=15, pady=15, sticky="w")
 
         # create execution info box
-        self.execution_info = customtkinter.CTkLabel(master=self, text="", fg_color="transparent", width=30, corner_radius=15)
+        self.execution_info = customtkinter.CTkLabel(
+            master=self, text="", fg_color="transparent", width=30, corner_radius=15
+        )
         self.execution_info.grid(row=2, column=3, padx=15, pady=15)
 
         self.toplevel_window = None
@@ -629,7 +687,7 @@ class App(customtkinter.CTk):
             self.execution_info.configure(text="Log Selection Error", fg_color="#ED2939")
             return
 
-        self.session_identifier=session_identifiers[0]
+        self.session_identifier = session_identifiers[0]
         if self.session_identifier not in self.preconfigured_phases:
             self.preconfigured_phases[self.session_identifier] = None
 
@@ -638,7 +696,10 @@ class App(customtkinter.CTk):
             self.data_frame = structure_data(data, columns)
 
             with self.redirect_stdout_to_label():
-                if self.preconfigured_phases[self.session_identifier] is None or self.option_menu.get() != "Axial distance Vessel Station":
+                if (
+                    self.preconfigured_phases[self.session_identifier] is None
+                    or self.option_menu.get() != "Axial distance Vessel-Station"
+                ):
                     phases = calculate_approach_phases(self.data_frame)
                     self.preconfigured_phases[self.session_identifier] = phases
                 else:
@@ -649,10 +710,10 @@ class App(customtkinter.CTk):
 
             current_text = self.execution_info.cget("text")
             if "BACKUP" in current_text:
-                color = "#ED2939" # red
+                color = "#ED2939"  # red
                 self.toplevel_window.execution_info.configure(text=current_text.rstrip(), fg_color=color)
             else:
-                color = "#00ab41" # green
+                color = "#00ab41"  # green
             self.execution_info.configure(text=current_text + "Plots of selected Flight-Logs created.", fg_color=color)
 
     def on_closing(self):
@@ -748,6 +809,7 @@ class App(customtkinter.CTk):
         Raises:
             AttributeError: If `self.execution_info` does not have a `cget` or `configure` method.
         """
+
         def new_stdout_write(message):
             current_text = self.execution_info.cget("text")
 
@@ -756,6 +818,7 @@ class App(customtkinter.CTk):
         class StdoutRedirector:
             def write(self, message):
                 new_stdout_write(message)
+
             def flush(self):
                 pass
 
@@ -768,6 +831,12 @@ class App(customtkinter.CTk):
 
 
 if __name__ == "__main__":
+    if getattr(sys, "frozen", False):
+        icon_path = sys._MEIPASS  # Check if running in a PyInstaller bundle
+        icon_path = os.path.join(icon_path, "icon.ico")
+    else:
+        icon_path = r"src\flight_data_evaluation_tool\icon.ico"
+
     customtkinter.set_appearance_mode("system")
     app = App()
 

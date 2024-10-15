@@ -205,7 +205,7 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
             _x_label_ = "Simulation time (s)"
             _phases_ = phases
         elif x_axis_type == "COG Pos.x [m]":
-            _x_label_ = "Axial distance Vessel Station [m]"
+            _x_label_ = "Axial distance Vessel-Station [m]"
             _phases_ = data_frame[data_frame["SimTime"].isin(phases)]["COG Pos.x [m]"].values
 
         sub_axvlines = _plot_values(

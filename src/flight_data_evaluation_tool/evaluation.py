@@ -4,6 +4,7 @@ import pandas as pd
 import yaml
 import numpy as np
 import os
+import sys
 
 
 def create_dataframe_template_from_yaml(yaml_file=r"src\flight_data_evaluation_tool\results_template.yaml"):
@@ -15,6 +16,10 @@ def create_dataframe_template_from_yaml(yaml_file=r"src\flight_data_evaluation_t
     Returns:
         pd.DataFrame: An empty DataFrame with columns and data types defined in the YAML file.
     """
+    if getattr(sys, "frozen", False):  # Check if running in a PyInstaller bundle
+        yaml_file = sys._MEIPASS
+        yaml_file = os.path.join(yaml_file, "results_template.yaml")
+
     with open(yaml_file, "r") as f:
         config = yaml.safe_load(f)
 
