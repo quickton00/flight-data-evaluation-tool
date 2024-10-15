@@ -9,6 +9,7 @@ from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from contextlib import contextmanager
 from functools import partial
 
+# Assure functionality of relative imports in development environment and standalone execution
 try:
     from flight_data_evaluation_tool.datastructuring import structure_data, calculate_approach_phases
     from flight_data_evaluation_tool.evaluation import (

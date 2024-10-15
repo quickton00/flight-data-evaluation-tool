@@ -3,15 +3,18 @@
 The Flight Data Evaluation Tool is a Python package that provides a GUI for the evaluation of flight data.
 It is developed for TUM internal usage at the Chair for Human Spaceflight Technology.
 
-## How to Package the code using pyinstaller
+## How to package the code using pyinstaller
 
 1. Install pyinstaller:
+
 pip install pyinstaller
 
 2. Navigate to the folder where gui.py is located, e.g.:
+
 cd .\src\flight_data_evaluation_tool\
 
 3. Build .exe:
+
 pyinstaller --onefile --windowed --icon=icon.ico --add-data "icon.ico;." --add-data "results_template.yaml;." gui.py --name "Flight Data Evaluation Tool"
 
 Note:
