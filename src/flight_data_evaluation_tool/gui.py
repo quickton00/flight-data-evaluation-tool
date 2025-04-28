@@ -276,9 +276,9 @@ class PlotWindow(customtkinter.CTkToplevel):
         # Add various buttons
         if x_axis_type == "SimTime":
             evaluate_button = customtkinter.CTkButton(
-                master=self, text="Create EvaluationResults.txt", command=self.evaluate_button_event
+                master=self, text="Add flight to database", command=self.evaluate_button_event
             )
-            evaluate_button.grid(row=4, column=0, padx=15, pady=15, sticky="s")
+            evaluate_button.grid(row=4, column=2, padx=15, pady=15, sticky="s")
         else:
             self.switch_var = customtkinter.StringVar(value="on")
             phases_switch = customtkinter.CTkSwitch(
@@ -300,7 +300,7 @@ class PlotWindow(customtkinter.CTkToplevel):
         heatmap_button = customtkinter.CTkButton(
             master=self, text="Show Heatmaps for Flight Phases", command=self.heatmap_button_event
         )
-        heatmap_button.grid(row=4, column=2, padx=15, pady=15, sticky="s")
+        heatmap_button.grid(row=4, column=0, padx=15, pady=15, sticky="s")
 
         # create execution info box
         self.execution_info = customtkinter.CTkLabel(
@@ -418,27 +418,18 @@ class PlotWindow(customtkinter.CTkToplevel):
             self.after(10, self.focus_force)
             return
 
-        save_dir = filedialog.askdirectory(title="Select Save Folder")
-        if not save_dir:
+        if not messagebox.askyesno(
+            "Flight Data Storage", "Do you really want to add this flight to the flight data storage base?"
+        ):
             return
 
-        eval_file_path = os.path.join(save_dir, "EvaluationResults.txt")
-        if os.path.exists(eval_file_path):
-            response = messagebox.askyesno(
-                "File Exists", "EvaluationResults.txt already exists. Do you want to add the data to this file?"
-            )
-            if response is True:
-                overwrite = False
-            else:
-                overwrite = True
-        else:
-            overwrite = True
-
         evaluate_flight_phases(
-            self.master.data_frame, list(self.phases.values()), self.master.results, save_dir, overwrite
+            self.master.data_frame,
+            list(self.phases.values()),
+            self.master.results,
         )
 
-        self.execution_info.configure(text=f"EvaluationResults.txt created under {save_dir}.", fg_color="#00ab41")
+        self.execution_info.configure(text=f"Flight added to database.", fg_color="#00ab41")
 
         # lift TopLevelWindow in front
         self.lift()

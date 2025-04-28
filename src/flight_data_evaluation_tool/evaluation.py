@@ -1,10 +1,11 @@
 # methods to create the datapoints for evaluation
 
-import pandas as pd
-import yaml
-import numpy as np
 import os
 import sys
+import yaml
+from datetime import datetime
+import pandas as pd
+import numpy as np
 
 
 def create_dataframe_template_from_yaml(yaml_file=r"src\flight_data_evaluation_tool\results_template.yaml"):
@@ -82,7 +83,7 @@ def start_stop_condition_evaluation(
     return (start_steering_timestamps, stop_steering_timestamps)
 
 
-def export_data(flight_data, save_path, overwrite=True):
+def export_data(flight_data: pd.DataFrame):
     """
     Exports flight data to a CSV file.
 
@@ -94,12 +95,29 @@ def export_data(flight_data, save_path, overwrite=True):
     Returns:
     None
     """
-    # flight_data.transpose().to_csv(save_path, sep="\t", index=True)   # for testing purposes
-    if overwrite:
-        flight_data.to_csv(save_path, sep=";", index=False, na_rep="NI")
+
+    # TODO disable function and button for exe
+
+    flight_data = flight_data.copy().drop(columns=["Logger Version", "Session ID", "Pilot"])
+
+    # Generate a unique identifier for the new entry
+    unique_id = int(datetime.now().strftime("%Y%m%d%H%M%S"))
+
+    # Add the unique identifier to the data
+    flight_data.insert(0, "EntryID", unique_id)
+
+    json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
+
+    if os.path.exists(json_file_path):
+        existing_data = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
+        updated_data = pd.concat([existing_data, flight_data], ignore_index=True)
+
+        print(updated_data)
     else:
-        with open(save_path, "a", newline="") as f:
-            flight_data.to_csv(f, sep=";", index=False, na_rep="NI", header=False)
+        updated_data = flight_data
+
+    # Save the updated data back to the JSON file
+    updated_data.to_json(json_file_path, orient="records", lines=True)
 
 
 def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_index, flight_phase_timestamps, results):
@@ -604,7 +622,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
     return total_flight_errors
 
 
-def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, save_dir, overwrite=True):
+def evaluate_flight_phases(flight_data, flight_phase_timestamps, results):
     """
     Evaluates different phases of a flight based on provided flight data and timestamps, and updates the results dictionary.
     Args:
@@ -635,4 +653,4 @@ def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, save_d
         "Lateral Offset"
     ]
 
-    export_data(results, os.path.join(save_dir, "EvaluationResults.txt"), overwrite)
+    export_data(results)
