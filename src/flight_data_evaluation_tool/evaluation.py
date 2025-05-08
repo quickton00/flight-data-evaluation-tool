@@ -83,7 +83,7 @@ def start_stop_condition_evaluation(
     return (start_steering_timestamps, stop_steering_timestamps)
 
 
-def export_data(flight_data: pd.DataFrame):
+def export_data(results: pd.DataFrame, flight_data: pd.DataFrame):
     """
     Exports flight data to a CSV file.
 
@@ -98,26 +98,25 @@ def export_data(flight_data: pd.DataFrame):
 
     # TODO disable function and button for exe
 
-    flight_data = flight_data.copy().drop(columns=["Logger Version", "Session ID", "Pilot"])
-
-    # Generate a unique identifier for the new entry
-    unique_id = int(datetime.now().strftime("%Y%m%d%H%M%S"))
-
-    # Add the unique identifier to the data
-    flight_data.insert(0, "EntryID", unique_id)
+    try:
+        results = results.copy().drop(columns=["Logger Version", "Session ID", "Pilot"])
+    except KeyError:
+        pass
 
     json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
 
     if os.path.exists(json_file_path):
         existing_data = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
-        updated_data = pd.concat([existing_data, flight_data], ignore_index=True)
-
-        print(updated_data)
+        updated_data = pd.concat([existing_data, results], ignore_index=True).drop_duplicates(
+            subset="Flight ID", keep="last", ignore_index=True
+        )
     else:
-        updated_data = flight_data
+        updated_data = results
+
+    flight_data.to_csv(f"data/{results['Flight ID'][0]}.csv", index=False)
 
     # Save the updated data back to the JSON file
-    updated_data.to_json(json_file_path, orient="records", lines=True)
+    updated_data.to_json(json_file_path, orient="records", lines=True, index=False)
 
 
 def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_index, flight_phase_timestamps, results):
@@ -653,4 +652,4 @@ def evaluate_flight_phases(flight_data, flight_phase_timestamps, results):
         "Lateral Offset"
     ]
 
-    export_data(results)
+    export_data(results, flight_data)

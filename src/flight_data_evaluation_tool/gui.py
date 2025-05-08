@@ -1,5 +1,6 @@
 import customtkinter
 from tkinter import filedialog, messagebox, PhotoImage
+import hashlib
 import os
 import sys
 import matplotlib.style
@@ -418,6 +419,15 @@ class PlotWindow(customtkinter.CTkToplevel):
             self.after(10, self.focus_force)
             return
 
+        for file in os.listdir("data"):
+
+            if os.path.splitext(file)[0] == self.master.results["Flight ID"][0]:
+                if not messagebox.askyesno(
+                    "Flight already exists",
+                    "Flight already exists in database, do you want to overwrite it?",
+                ):
+                    return
+
         if not messagebox.askyesno(
             "Flight Data Storage", "Do you really want to add this flight to the flight data storage base?"
         ):
@@ -740,6 +750,8 @@ class App(customtkinter.CTk):
         data = []
         self.results = create_dataframe_template_from_yaml()
 
+        self.results["Flight ID"] = hashlib.sha256(str.encode(os.path.basename(flight_logs[0]))).hexdigest()
+
         for flight_log in flight_logs:
             with open(flight_log, encoding="utf-8") as file:
                 lines = file.readlines()
@@ -762,12 +774,15 @@ class App(customtkinter.CTk):
                         elif line.startswith("PILOT:"):
                             self.results["Pilot"] = line.split(":")[1].strip()
                         elif line.startswith("TIME:"):
-                            self.results["Date"] = line.split(":")[1].strip().split(" ")[0].replace("-", ".")
+                            self.results["Date"] = int(line.split(":")[1].strip().split(" ")[0].split("-")[2])
                         elif line.startswith("SCENARIO:"):
                             self.results["Scenario"] = line.split(":")[1].strip()
                         continue
                     if line.startswith("SimTime"):
                         line = line.replace("MFDRightMyROT.m11", "MFDRight; MyROT.m11")  # handle bug in logger
+                        for name in ["; m12", "; m13", "; m21", "; m22", "; m23", "; m31", "; m32", "; m33"]:
+                            line = line.replace(name, f"; MyROT.{name.split()[1]}", 1)
+                            line = line.replace(name, f"; TgtRot.{name.split()[1]}", 1)
                         columns = map(str.strip, line.split(";"))
                         columns = filter(None, columns)
                         continue
