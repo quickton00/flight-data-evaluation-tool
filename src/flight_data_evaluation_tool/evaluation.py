@@ -193,6 +193,44 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             [stop_steering_timestamps[i] - start_steering_timestamps[i] for i in range(len(start_steering_timestamps))]
         )
 
+    # calculation for "AboveApprVel_{phase}"
+    if f"AboveApprVel_{phase}" in results.columns:
+        start_condition = (
+            (flight_data["COG Vel.x [m]"] < flight_data["Ideal Approach Vel"])
+            & (
+                (
+                    flight_data["COG Vel.x [m]"].shift(periods=1, fill_value=0)
+                    >= flight_data["Ideal Approach Vel"].shift(periods=1, fill_value=0)
+                )
+                | (flight_data["SimTime"] == flight_phase_timestamps[start_index])
+            )
+        ) & (
+            (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+            & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+        )
+
+        stop_condition = (
+            (flight_data["COG Vel.x [m]"] >= flight_data["Ideal Approach Vel"])
+            & (
+                (
+                    flight_data["COG Vel.x [m]"].shift(periods=1, fill_value=0)
+                    < flight_data["Ideal Approach Vel"].shift(periods=1, fill_value=0)
+                )
+                | (flight_data["SimTime"] == flight_phase_timestamps[stop_index])
+            )
+        ) & (
+            (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+            & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+        )
+
+        (start_steering_timestamps, stop_steering_timestamps) = start_stop_condition_evaluation(
+            flight_data, start_condition, stop_condition, start_index, stop_index, flight_phase_timestamps
+        )
+
+        results[f"AboveApprVel_{phase}"] = sum(
+            [stop_steering_timestamps[i] - start_steering_timestamps[i] for i in range(len(start_steering_timestamps))]
+        )
+
     # calculation for "Fuel_{phase}"
     if f"Fuel_{phase}" in results.columns:
         results[f"Fuel_{phase}"] = (

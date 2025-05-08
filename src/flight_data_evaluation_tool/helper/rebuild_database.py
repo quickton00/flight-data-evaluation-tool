@@ -1,20 +1,32 @@
 # helper function to recalculate the database when implementation of evaluation parameters changes
+# for development purposes only
 
 import os
 import sys
+import yaml
 import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from flight_data_evaluation_tool.evaluation import evaluate_flight_phases
 
 
-def rebuild_database(path=r"data"):
+def rebuild_database(database_path=r"data"):
     json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
+    yaml_file_path = r"src\flight_data_evaluation_tool\results_template.yaml"
 
     results_json = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
 
-    for file in os.listdir(path):
-        flight_data = pd.read_csv(os.path.join(path, file), float_precision="round_trip")
+    with open(yaml_file_path, "r") as f:
+        config = yaml.safe_load(f)
+
+    columns = config["columns"]
+
+    for column in columns:
+        if column not in results_json.columns:
+            results_json[column] = None  # Add missing columns with default value `None`
+
+    for file in os.listdir(database_path):
+        flight_data = pd.read_csv(os.path.join(database_path, file), float_precision="round_trip")
 
         results = results_json[results_json["Flight ID"] == os.path.splitext(file)[0]].reset_index(drop=True)
 
