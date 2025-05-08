@@ -1,4 +1,4 @@
-# methods to create the datapoints for evaluation
+# methods to create the data points for evaluation
 
 import os
 import sys
@@ -18,7 +18,7 @@ def create_dataframe_template_from_yaml(yaml_file=r"src\flight_data_evaluation_t
         pd.DataFrame: An empty DataFrame with columns and data types defined in the YAML file.
     """
     if getattr(sys, "frozen", False):  # Check if running in a PyInstaller bundle
-        yaml_file = sys._MEIPASS
+        yaml_file = sys._MEIPASS  # type: ignore
         yaml_file = os.path.join(yaml_file, "results_template.yaml")
 
     with open(yaml_file, "r") as f:
@@ -501,7 +501,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                 flight_errors[flight_errors[other_controller_axis].any(axis=1)]
             )
 
-            # claculation for "Fuel_on_Error", could be changed to be phase specific
+            # calculation for "Fuel_on_Error", could be changed to be phase specific
             # stop conditions not perfect for RHC (Rework possible, see als start_stop_condition_evaluation())
             if phase == "Total":
                 (start_steering_timestamps, stop_steering_timestamps) = start_stop_condition_evaluation(

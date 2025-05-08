@@ -172,7 +172,7 @@ def structure_data(data, columns):
     data_frame["Lateral Offset"] = (data_frame["COG Pos.y [m]"] ** 2 + data_frame["COG Pos.z [m]"] ** 2) ** 0.5
     data_frame["Lateral Velocity"] = (data_frame["COG Vel.y [m]"] ** 2 + data_frame["COG Vel.z [m]"] ** 2) ** 0.5
 
-    # data set for ideal aproach velocity
+    # data set for ideal approach velocity
     data_frame["Ideal Approach Vel"] = -data_frame["COG Pos.x [m]"] / 200
     data_frame.loc[data_frame["COG Pos.x [m]"] < 20, "Ideal Approach Vel"] = -0.1
 
@@ -191,7 +191,7 @@ def structure_data(data, columns):
     # data set fot the max allowed rotational angle
     data_frame.loc[(data_frame["Port Pos.x [m]"] > 0) & (data_frame["COG Pos.x [m]"] < 20), "Max Rot Angle"] = 1.5
 
-    # data set for the may allowed rotaional velocity
+    # data set for the may allowed rotational velocity
     data_frame.loc[(data_frame["Port Pos.x [m]"] > 0) & (data_frame["COG Pos.x [m]"] < 20), "Max Rot Velocity"] = 0.15
 
     return data_frame
