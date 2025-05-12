@@ -17,13 +17,15 @@ def rebuild_database(database_path=r"data"):
     results_json = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
 
     with open(yaml_file_path, "r") as f:
-        config = yaml.safe_load(f)
+        yaml_config = yaml.safe_load(f)
 
-    columns = config["columns"]
-
-    for column in columns:
+    for column in yaml_config["columns"]:
         if column not in results_json.columns:
             results_json[column] = None  # Add missing columns with default value `None`
+
+    for column in results_json.columns:
+        if column not in yaml_config["columns"]:
+            results_json = results_json.drop(columns=column)
 
     for file in os.listdir(database_path):
         flight_data = pd.read_csv(os.path.join(database_path, file), float_precision="round_trip")
