@@ -248,9 +248,9 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
 
     # calculation for "NoVisTime_{phase}"
     start_condition = (
-        (flight_data["Angle to Port"] > 15)
+        (flight_data["Angle to Port"] > 7.5)
         & (
-            (flight_data["Angle to Port"].shift(periods=1, fill_value=0) <= 15)
+            (flight_data["Angle to Port"].shift(periods=1, fill_value=0) <= 7.5)
             | (flight_data["SimTime"] == flight_phase_timestamps[start_index])
         )
     ) & (
@@ -259,9 +259,9 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
     )
 
     stop_condition = (
-        (flight_data["Angle to Port"] <= 15)
+        (flight_data["Angle to Port"] <= 7.5)
         & (
-            (flight_data["Angle to Port"].shift(periods=1, fill_value=0) > 15)
+            (flight_data["Angle to Port"].shift(periods=1, fill_value=0) > 7.5)
             | (flight_data["SimTime"] == flight_phase_timestamps[stop_index])
         )
     ) & (
@@ -508,7 +508,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
 
             # calculation for "Fuel_on_Error", could be changed to be phase specific
             # stop conditions not perfect for RHC (Rework possible, see als start_stop_condition_evaluation())
-            if phase == "Total":
+            if f"Fuel_on_Error_{phase}" in results.columns:
                 (start_steering_timestamps, stop_steering_timestamps) = start_stop_condition_evaluation(
                     flight_data,
                     start_condition,
@@ -519,7 +519,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                     f"{controller}.{coordinate}",
                 )
 
-                results[f"Fuel_on_Error"] = results[f"Fuel_on_Error"] + sum(
+                results[f"Fuel_on_Error_{phase}"] = results[f"Fuel_on_Error_{phase}"] + sum(
                     [
                         flight_data[flight_data["SimTime"] == start_steering_timestamps[i]].iloc[0]["Tank mass [kg]"]
                         - flight_data[flight_data["SimTime"] == stop_steering_timestamps[i]].iloc[0]["Tank mass [kg]"]
@@ -709,7 +709,6 @@ def evaluate_flight_phases(flight_data, flight_phase_timestamps, results):
     """
     start_index = 0
     stop_index = 1
-    results["Fuel_on_Error"] = 0
 
     for phase in ["Align", "Appr", "FA", "Total"]:
         calculate_phase_evaluation_values(flight_data, phase, start_index, stop_index, flight_phase_timestamps, results)

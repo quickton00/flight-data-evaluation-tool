@@ -11,6 +11,23 @@ from flight_data_evaluation_tool.evaluation import evaluate_flight_phases
 
 
 def rebuild_database(database_path=r"data"):
+    """
+    Rebuilds the flight database by processing and evaluating flight data against predefined templates.
+    This function reads flight data from a JSON file and compares it against a YAML template,
+    ensuring all required columns are present. It then processes each flight data CSV file in
+    the specified database directory, matching it with the corresponding JSON data using the
+    flight ID, and evaluates flight phases.
+    Args:
+        database_path (str, optional): Path to the directory containing flight data CSV files.
+            Defaults to "data".
+    Notes:
+        - The function reads flight data from 'flight_data.json' and configuration from 'results_template.yaml'
+        - Missing columns from the YAML template are added to the data with None values
+        - Columns not specified in the YAML template are removed from the data
+        - Each CSV file in the database directory is processed and evaluated using the evaluate_flight_phases function
+        - Flight phases are extracted from the results data for evaluation
+    """
+
     json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
     yaml_file_path = r"src\flight_data_evaluation_tool\results_template.yaml"
 

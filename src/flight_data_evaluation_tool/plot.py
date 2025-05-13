@@ -191,7 +191,7 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
         ],
         "Angle between periscope and port-axis": [
             data_frame["Angle to Port"],
-            "Angle (docking port is visible when under 15°)",
+            "Angle (docking port is visible when under 7.5°)",
             None,
             None,
         ],
