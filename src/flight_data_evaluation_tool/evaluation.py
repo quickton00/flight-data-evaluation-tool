@@ -98,6 +98,11 @@ def export_data(results: pd.DataFrame, flight_data: pd.DataFrame):
 
     # TODO disable function and button for exe
 
+    try:
+        results = results.copy().drop(columns=["Logger Version", "Session ID", "Pilot"])
+    except KeyError:
+        pass
+
     json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
 
     if os.path.exists(json_file_path):
@@ -109,8 +114,6 @@ def export_data(results: pd.DataFrame, flight_data: pd.DataFrame):
         updated_data = results
 
     updated_data = updated_data.dropna(axis="columns", how="all")
-
-    print(len(updated_data.columns))
 
     flight_data.to_csv(f"data/{results['Flight ID'][0]}.csv", index=False)
 
