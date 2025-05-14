@@ -359,7 +359,8 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
         total_flight_errors["THC.x"] = flight_errors["SimTime"].to_list()
 
     # calculation for "THCxIndErr_{phase}"
-    results[f"THCxIndErr_{phase}"] = len(flight_errors[flight_errors[["THC.y", "THC.z"]].any(axis=1)])
+    if f"THCxIndErr_{phase}" in results.columns:
+        results[f"THCxIndErr_{phase}"] = len(flight_errors[flight_errors[["THC.y", "THC.z"]].any(axis=1)])
 
     # calculation for "{controller}{coordinate}Err_{phase}" and "{controller}{coordinate}IndErr_{phase}" except THC.x
     for coordinate in ["x", "y", "z"]:
@@ -495,16 +496,17 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             results[f"{controller}{coordinate}Err_{phase}"] = len(flight_errors)
 
             # calculation for "{controller}{coordinate}IndErr_{phase}"
-            if controller == "THC":
-                other_controller_axis = ["THC.y", "THC.z"]
-            else:
-                other_controller_axis = ["RHC.x", "RHC.y", "RHC.z"]
+            if f"{controller}{coordinate}IndErr_{phase}" in results.columns:
+                if controller == "THC":
+                    other_controller_axis = ["THC.y", "THC.z"]
+                else:
+                    other_controller_axis = ["RHC.x", "RHC.y", "RHC.z"]
 
-            other_controller_axis.remove(f"{controller}.{coordinate}")
+                other_controller_axis.remove(f"{controller}.{coordinate}")
 
-            results[f"{controller}{coordinate}IndErr_{phase}"] = len(
-                flight_errors[flight_errors[other_controller_axis].any(axis=1)]
-            )
+                results[f"{controller}{coordinate}IndErr_{phase}"] = len(
+                    flight_errors[flight_errors[other_controller_axis].any(axis=1)]
+                )
 
             # calculation for "Fuel_on_Error", could be changed to be phase specific
             # stop conditions not perfect for RHC (Rework possible, see als start_stop_condition_evaluation())
