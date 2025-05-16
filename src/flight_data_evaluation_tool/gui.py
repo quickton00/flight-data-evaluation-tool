@@ -4,6 +4,7 @@ import hashlib
 import os
 import sys
 import matplotlib.style
+import matplotlib.pyplot as plt
 from matplotlib.transforms import Bbox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
@@ -153,6 +154,8 @@ class HeatMapWindow(customtkinter.CTkToplevel):
         if sys.platform.startswith("win"):
             self.after(200, lambda: self.iconbitmap(icon_path))
 
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
     def print_button_event(self):
         """
         Saves the heatmaps as individual PNG files in the selected directory.
@@ -186,6 +189,10 @@ class HeatMapWindow(customtkinter.CTkToplevel):
         self.lift()
         self.focus_force()
         self.after(10, self.focus_force)
+
+    def on_close(self):
+        plt.close(self.figure)
+        self.destroy()
 
 
 class PlotWindow(customtkinter.CTkToplevel):
@@ -327,6 +334,12 @@ class PlotWindow(customtkinter.CTkToplevel):
         # to set the icon again after 200ms
         if sys.platform.startswith("win"):
             self.after(200, lambda: self.iconbitmap(icon_path))
+
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def on_close(self):
+        plt.close(self.figure)
+        self.destroy()
 
     def on_focus(self, event):
         """

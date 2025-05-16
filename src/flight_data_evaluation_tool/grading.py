@@ -121,7 +121,6 @@ def tier_data():
     counter = {
         "continuous normal": 0,
         "continuous non-normal": 0,
-        "count normal": 0,
         "count zero-inflated normal": 0,
         "count zero-inflated-non normal": 0,
         "count normal": 0,
