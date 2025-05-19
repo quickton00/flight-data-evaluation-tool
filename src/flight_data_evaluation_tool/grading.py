@@ -89,18 +89,24 @@ def tier_count_metric(metric, alpha=0.05):
 
         metric_power = transform_data(metric, transformer_type="power", method="yeo-johnson")
 
-        if is_normal(metric_power):
+        for method in ["box-cox", "yeo-johnson"]:
+            if method == "box-cox" and (metric <= 0).any():
+                continue
+
+            metric_power = transform_data(metric, transformer_type="power", method=method)
+
+            if is_normal(metric_power):
+                return "continuous normal"
+
+        metric = transform_data(metric, transformer_type="quantile")
+
+        if is_normal(metric):
             return "count normal"
-        else:
-            metric = transform_data(metric, transformer_type="quantile")
 
-            if is_normal(metric):
-                return "count normal"
+        plt.hist(metric)
+        plt.show()
 
-            plt.hist(metric)
-            plt.show()
-
-            return "count non-normal"
+        return "count non-normal"
 
 
 def tier_continuous_metric(metric, alpha=0.05):
@@ -132,21 +138,25 @@ def tier_continuous_metric(metric, alpha=0.05):
             return "continuous normal"
 
         # check if metric is power transformable
-        metric_power = transform_data(metric, transformer_type="power", method="yeo-johnson")
+        for method in ["box-cox", "yeo-johnson"]:
+            if method == "box-cox" and (metric <= 0).any():
+                continue
 
-        if is_normal(metric_power):
-            return "continuous normal"
-        else:
-            # check if metric is quantile transformable
-            metric = transform_data(metric, transformer_type="quantile")
+            metric_power = transform_data(metric, transformer_type="power", method=method)
 
-            if is_normal(metric):
+            if is_normal(metric_power):
                 return "continuous normal"
 
-            plt.hist(metric)
-            plt.show()
+        # check if metric is quantile transformable
+        metric = transform_data(metric, transformer_type="quantile")
 
-            return "continuous non-normal"
+        if is_normal(metric):
+            return "continuous normal"
+
+        plt.hist(metric)
+        plt.show()
+
+        return "continuous non-normal"
 
 
 def tier_data():
@@ -160,7 +170,7 @@ def tier_data():
 
     database = database[
         database.columns.drop(
-            list(database.filter(regex="Align|FA|Total|Flight ID|Dock|Date|Scenario|Manually modified Phases"))
+            list(database.filter(regex="Appr|FA|Total|Flight ID|Dock|Date|Scenario|Manually modified Phases"))
         )
     ]
 
