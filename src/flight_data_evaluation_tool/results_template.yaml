@@ -13,10 +13,10 @@ columns:
   - OutOfCone_Align
   - OutOfCone_Appr
   - OutOfCone_FA
-  - AboveApprVel_Align
-  - AboveApprVel_Appr
-  - AboveApprVel_FA
-  - AboveApprVel_Total
+  - AboveClosingVel_Align
+  - AboveClosingVel_Appr
+  - AboveClosingVel_FA
+  - AboveClosingVel_Total
   - Fuel_Align
   - Fuel_Appr
   - Fuel_FA

@@ -195,8 +195,8 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             [stop_steering_timestamps[i] - start_steering_timestamps[i] for i in range(len(start_steering_timestamps))]
         )
 
-    # calculation for "AboveApprVel_{phase}"
-    if f"AboveApprVel_{phase}" in results.columns:
+    # calculation for "AboveClosingVel_{phase}"
+    if f"AboveClosingVel_{phase}" in results.columns:
         start_condition = (
             (flight_data["COG Vel.x [m]"] < flight_data["Ideal Approach Vel"])
             & (
@@ -229,7 +229,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             flight_data, start_condition, stop_condition, start_index, stop_index, flight_phase_timestamps
         )
 
-        results[f"AboveApprVel_{phase}"] = sum(
+        results[f"AboveClosingVel_{phase}"] = sum(
             [stop_steering_timestamps[i] - start_steering_timestamps[i] for i in range(len(start_steering_timestamps))]
         )
 
