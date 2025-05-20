@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.stats import chi2
 from scipy.stats import shapiro, normaltest, anderson
 from sklearn.preprocessing import PowerTransformer, QuantileTransformer
@@ -42,121 +41,18 @@ def is_zero_inflated(data, alpha):
     return p_value < alpha
 
 
-def is_count_data(data):
-    """Check if data is count data (non-negative integers)"""
-    return all(isinstance(x, int) and x >= 0 for x in data)
-
-
 def transform_data(data, transformer_type, method="yeo-johnson"):
     """Transform data using PowerTransformer"""
     if transformer_type == "power":
         pt = PowerTransformer(method=method)
-        return pd.Series(pt.fit_transform(data.values.reshape(-1, 1)).flatten(), index=data.index)
+        return pd.Series(pt.fit_transform(data.values.reshape(-1, 1)).flatten(), index=data.index), pt
     elif transformer_type == "quantile":
-        qt = QuantileTransformer(output_distribution="normal")
-        return pd.Series(qt.fit_transform(data.values.reshape(-1, 1)).flatten(), index=data.index)
+        # Set n_quantiles to min(1000, number of samples) to avoid warning
+        n_quantiles = min(1000, len(data))
+        qt = QuantileTransformer(output_distribution="normal", n_quantiles=n_quantiles)
+        return pd.Series(qt.fit_transform(data.values.reshape(-1, 1)).flatten(), index=data.index), qt
     else:
         raise ValueError("Invalid transform type. Use 'power' or 'quantile'.")
-
-
-def tier_count_metric(metric, alpha=0.05):
-    if is_zero_inflated(metric, alpha):
-        # zero inflation detected
-        metric = metric[lambda value: value > 0]
-
-        if len(metric) == 0 or is_normal(metric, alpha):
-            return "count zero-inflated normal"
-
-        if is_normal(transform_data(metric, transformer_type="power", method="box-cox")) or is_normal(
-            transform_data(metric, transformer_type="power", method="yeo-johnson")
-        ):
-            return "count zero-inflated normal"
-        else:
-            metric = transform_data(metric, transformer_type="quantile")
-
-            if is_normal(metric):
-                return "count zero-inflated normal"
-
-            plt.hist(metric)
-            plt.show()
-
-            return "count zero-inflated-non normal"
-
-    else:
-        # no zero inflation
-        if is_normal(metric, alpha):
-            return "count normal"
-
-        metric_power = transform_data(metric, transformer_type="power", method="yeo-johnson")
-
-        for method in ["box-cox", "yeo-johnson"]:
-            if method == "box-cox" and (metric <= 0).any():
-                continue
-
-            metric_power = transform_data(metric, transformer_type="power", method=method)
-
-            if is_normal(metric_power):
-                return "continuous normal"
-
-        metric = transform_data(metric, transformer_type="quantile")
-
-        if is_normal(metric):
-            return "count normal"
-
-        plt.hist(metric)
-        plt.show()
-
-        return "count non-normal"
-
-
-def tier_continuous_metric(metric, alpha=0.05):
-    if is_zero_inflated(metric, alpha):
-        # zero inflation detected
-        metric = metric[lambda value: value > 0]
-
-        if len(metric) == 0 or is_normal(metric, alpha):
-            return "continuous zero-inflated normal"
-
-        if is_normal(transform_data(metric, transformer_type="power", method="box-cox")) or is_normal(
-            transform_data(metric, transformer_type="power", method="yeo-johnson")
-        ):
-            return "continuous zero-inflated normal"
-        else:
-            # check if metric is quantile transformable
-            metric = transform_data(metric, transformer_type="quantile")
-
-            if is_normal(metric):
-                return "continuous zero-inflated normal"
-
-            plt.hist(metric)
-            plt.show()
-
-            return "continuous zero-inflated non-normal"
-    else:
-        # no zero inflation
-        if is_normal(metric, alpha):
-            return "continuous normal"
-
-        # check if metric is power transformable
-        for method in ["box-cox", "yeo-johnson"]:
-            if method == "box-cox" and (metric <= 0).any():
-                continue
-
-            metric_power = transform_data(metric, transformer_type="power", method=method)
-
-            if is_normal(metric_power):
-                return "continuous normal"
-
-        # check if metric is quantile transformable
-        metric = transform_data(metric, transformer_type="quantile")
-
-        if is_normal(metric):
-            return "continuous normal"
-
-        plt.hist(metric)
-        plt.show()
-
-        return "continuous non-normal"
 
 
 def tier_data():
@@ -168,43 +64,81 @@ def tier_data():
 
     # TODO: switch to phase wise evaluation, currently only align phase
 
-    database = database[
-        database.columns.drop(
-            list(database.filter(regex="Appr|FA|Total|Flight ID|Dock|Date|Scenario|Manually modified Phases"))
-        )
-    ]
+    regex_filter = "Appr|FA|Total|Flight ID|Dock|Date|Scenario|Manually modified Phases"
 
-    counter = {
-        "continuous normal": 0,
-        "continuous non-normal": 0,
-        "continuous zero-inflated normal": 0,
-        "continuous zero-inflated non-normal": 0,
-        "count zero-inflated normal": 0,
-        "count zero-inflated-non normal": 0,
-        "count normal": 0,
-        "count non-normal": 0,
-    }
+    database = database[database.columns.drop(list(database.filter(regex=regex_filter)))]
+
+    test_row = database.iloc[-1]
+
+    normal_counter = 0
+    non_normal_counter = 0
 
     for column in database:
         print(column)
-        result = tier_metric(database[column])
+        dist_type, metric, transformer = tier_metric(database[column])
 
-        counter[result] += 1
+        if dist_type == "normal":
+            normal_counter += 1
+            print(test_row[column])
 
-    print(counter)
+            if test_row[column] == 0:
+                print("Excellent")
+                continue
+
+            if transformer:
+                current_value = transformer.transform(test_row[column].reshape(1, -1))
+            else:
+                current_value = test_row[column]
+
+            if current_value <= metric.mean() - 2 * metric.std():
+                print("Excellent")
+            elif current_value <= metric.mean() - metric.std():
+                print("Good")
+            elif current_value <= metric.mean() + metric.std():
+                print("Normal")
+            elif current_value <= metric.mean() + 2 * metric.std():
+                print("Poor")
+            else:
+                print("Very Poor")
+        elif dist_type == "non-normal":
+            non_normal_counter += 1
+            print("Not implemented yet")
+        else:
+            raise ValueError("Invalid distribution type. Use 'normal' or 'non-normal'.")
+
+    print(f"Normal: {normal_counter}, Non-normal: {non_normal_counter}")
 
 
-def tier_metric(metric):
+def tier_metric(metric, alpha=0.05):
     mean = metric.mean()
     std = metric.std()
 
     # cut outliers greater than 3 std
     metric = metric[lambda value: (value >= mean - 3 * std) & (value <= mean + 3 * std)]
 
-    if is_count_data(metric):
-        return tier_count_metric(metric)
-    else:
-        return tier_continuous_metric(metric)
+    if is_zero_inflated(metric, alpha):
+        # zero inflation detected
+        metric = metric[lambda value: value > 0]
+
+    if len(metric) == 0 or is_normal(metric, alpha):
+        return "normal", metric, None
+
+    for method in ["box-cox", "yeo-johnson"]:
+        if method == "box-cox" and (metric <= 0).any():
+            continue
+
+        metric_power, transformer = transform_data(metric, transformer_type="power", method=method)
+
+        if is_normal(metric_power):
+            return "normal", metric_power, transformer
+
+    # check if metric is quantile transformable if power transform fails
+    quantile_metric, transformer = transform_data(metric, transformer_type="quantile")
+
+    if is_normal(quantile_metric):
+        return "normal", quantile_metric, transformer
+
+    return "non-normal", metric, None
 
 
 if __name__ == "__main__":

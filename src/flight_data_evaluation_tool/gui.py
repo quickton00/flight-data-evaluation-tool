@@ -1,5 +1,5 @@
 import customtkinter
-from tkinter import filedialog, messagebox, PhotoImage
+from tkinter import filedialog, messagebox
 import hashlib
 import os
 import sys
@@ -15,7 +15,7 @@ from functools import partial
 try:
     from flight_data_evaluation_tool.datastructuring import structure_data, calculate_approach_phases
     from flight_data_evaluation_tool.evaluation import (
-        create_dataframe_template_from_yaml,
+        create_dataframe_template_from_json,
         evaluate_flight_phases,
         calculate_phase_evaluation_values,
     )
@@ -23,7 +23,7 @@ try:
 except ImportError:
     from datastructuring import structure_data, calculate_approach_phases
     from evaluation import (
-        create_dataframe_template_from_yaml,
+        create_dataframe_template_from_json,
         evaluate_flight_phases,
         calculate_phase_evaluation_values,
     )
@@ -761,7 +761,7 @@ class App(customtkinter.CTk):
             - Handles a specific bug in the logger by replacing "MFDRightMyROT.m11" with "MFDRight; MyROT.m11".
         """
         data = []
-        self.results = create_dataframe_template_from_yaml()
+        self.results = create_dataframe_template_from_json()
 
         self.results["Flight ID"] = hashlib.sha256(str.encode(os.path.basename(flight_logs[0]))).hexdigest()
 

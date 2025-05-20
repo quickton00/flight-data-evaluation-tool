@@ -2,30 +2,29 @@
 
 import os
 import sys
-import yaml
-from datetime import datetime
+import json
 import pandas as pd
 import numpy as np
 
 
-def create_dataframe_template_from_yaml(yaml_file=r"src\flight_data_evaluation_tool\results_template.yaml"):
+def create_dataframe_template_from_json(template_file=r"src\flight_data_evaluation_tool\results_template.json"):
     """
-    Creates a pandas DataFrame template based on the structure defined in a YAML file.
+    Creates a pandas DataFrame template based on the structure defined in a json file.
     Args:
-        yaml_file (str): Path to the YAML file containing the DataFrame template configuration.
-                         Defaults to "src\\flight_data_evaluation_tool\\results_template.yaml".
+        template_file (str): Path to the json file containing the DataFrame template configuration.
+                         Defaults to "src\\flight_data_evaluation_tool\\results_template.json".
     Returns:
-        pd.DataFrame: An empty DataFrame with columns and data types defined in the YAML file.
+        pd.DataFrame: An empty DataFrame with columns and data types defined in the json file.
     """
     if getattr(sys, "frozen", False):  # Check if running in a PyInstaller bundle
-        yaml_file = sys._MEIPASS  # type: ignore
-        yaml_file = os.path.join(yaml_file, "results_template.yaml")
+        template_file = sys._MEIPASS  # type: ignore
+        template_file = os.path.join(template_file, "results_template.json")
 
-    with open(yaml_file, "r") as f:
-        config = yaml.safe_load(f)
+    with open(template_file, "r") as f:
+        config = json.load(f)
 
-    # Extract columns from the loaded YAML
-    columns = config["columns"]
+    # Extract columns from the loaded json
+    columns = config["columns"].keys()
 
     # Create an empty DataFrame with defined columns and data types
     df_template = pd.DataFrame(columns=columns, index=[0])
@@ -684,15 +683,11 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
         ]
 
-        if f"{result_name}Avg_{phase}" not in results.columns:
-            continue
+        if f"{result_name}Avg_{phase}" in results.columns:
+            results[f"{result_name}Avg_{phase}"] = filtered_flight_data[column_name].mean()
 
-        results[f"{result_name}Avg_{phase}"] = filtered_flight_data[column_name].mean()
-
-        if f"{result_name}Rms_{phase}" not in results.columns:
-            continue
-
-        results[f"{result_name}Rms_{phase}"] = (filtered_flight_data[column_name] ** 2).mean() ** 0.5
+        if f"{result_name}Rms_{phase}" in results.columns:
+            results[f"{result_name}Rms_{phase}"] = (filtered_flight_data[column_name] ** 2).mean() ** 0.5
 
     return total_flight_errors
 

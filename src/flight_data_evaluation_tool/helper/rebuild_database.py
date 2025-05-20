@@ -3,7 +3,7 @@
 
 import os
 import sys
-import yaml
+import json
 import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -29,19 +29,19 @@ def rebuild_database(database_path=r"data"):
     """
 
     json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
-    yaml_file_path = r"src\flight_data_evaluation_tool\results_template.yaml"
+    template_file_path = r"src\flight_data_evaluation_tool\results_template.json"
 
     results_json = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
 
-    with open(yaml_file_path, "r") as f:
-        yaml_config = yaml.safe_load(f)
+    with open(template_file_path, "r") as f:
+        results_template = json.load(f)
 
-    for column in yaml_config["columns"]:
+    for column in results_template["columns"]:
         if column not in results_json.columns:
             results_json[column] = None  # Add missing columns with default value `None`
 
     for column in results_json.columns:
-        if column not in yaml_config["columns"]:
+        if column not in results_template["columns"]:
             results_json = results_json.drop(columns=column)
 
     for file in os.listdir(database_path):
