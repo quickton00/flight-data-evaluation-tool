@@ -78,6 +78,7 @@ def tier_data():
         dist_type, metric, transformer = tier_metric(database[column])
 
         if dist_type == "normal":
+            print(dist_type)
             normal_counter += 1
             print(test_row[column])
 
@@ -101,8 +102,27 @@ def tier_data():
             else:
                 print("Very Poor")
         elif dist_type == "non-normal":
+            print(dist_type)
             non_normal_counter += 1
-            print("Not implemented yet")
+            print(test_row[column])
+
+            print(metric.sort_values())
+
+            current_value = test_row[column]
+
+            # TODO: evtl auch kleiner gleich bei count metrics?
+
+            if current_value < metric.nsmallest(round(len(metric) * 0.023 + 0.5)).values[-1]:
+                print("Excellent")
+            elif current_value < metric.nsmallest(round(len(metric) * 0.159 + 0.5)).values[-1]:
+                print("Good")
+            elif current_value < metric.nsmallest(round(len(metric) * 0.841 + 0.5)).values[-1]:
+                print("Normal")
+            elif current_value < metric.nsmallest(round(len(metric) * 0.977 + 0.5)).values[-1]:
+                print("Poor")
+            else:
+                print("Very Poor")
+
         else:
             raise ValueError("Invalid distribution type. Use 'normal' or 'non-normal'.")
 
