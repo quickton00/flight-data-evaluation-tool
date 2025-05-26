@@ -729,6 +729,10 @@ class App(customtkinter.CTk):
                 self.toplevel_window.execution_info.configure(text=current_text.rstrip(), fg_color=color)
             else:
                 color = "#00ab41"  # green
+                self.toplevel_window.execution_info.configure(
+                    text=current_text.rstrip() + "Plots of selected Flight-Logs created.", fg_color=color
+                )
+
             self.execution_info.configure(text=current_text + "Plots of selected Flight-Logs created.", fg_color=color)
 
     def on_closing(self):
