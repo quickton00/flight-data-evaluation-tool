@@ -101,49 +101,52 @@ def tier_metric(raw_metric, alpha=0.05):
         return "non-normal", raw_metric, None
 
 
-def tier_data():
+def tier_data(test_row, phase):
+    phase_filter = {
+        "Alignment Phase": "Appr|FA|Total",
+        "Approach Phase": "Align|FA|Total",
+        "Final Approach Phase": "Align|Appr|Total",
+        "Total Flight": "Align|Appr|FA",
+    }[phase]
+
+    regex_filter = f"{phase_filter}|Flight ID|Dock|Date|Scenario|Manually modified Phases"
 
     json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
 
     # Load database
     database = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
 
-    # TODO: switch to phase wise evaluation, currently only align phase
-
-    regex_filter = "Appr|FA|Total|Flight ID|Dock|Date|Scenario|Manually modified Phases"
-
     database = database[database.columns.drop(list(database.filter(regex=regex_filter)))]
-
-    test_row = database.iloc[-1]
 
     counter = {"normal": 0, "non-normal": 0, "count-non-normal": 0}
 
+    tiered_data = {"Excellent": [], "Good": [], "Normal": [], "Poor": [], "Very Poor": []}
+
     for column in database:
-        print(column)
         dist_type, metric, transformer = tier_metric(database[column])
 
         counter[dist_type] += 1
 
         if dist_type == "normal":
             if test_row[column] == 0:
-                print("Excellent")
+                tiered_data["Excellent"].append(column)
                 continue
 
             if transformer:
-                current_value = transformer.transform(test_row[column].reshape(1, -1))
+                current_value = transformer.transform(np.array(test_row[column]).reshape(-1, 1))
             else:
                 current_value = test_row[column]
 
             if current_value <= metric.mean() - 2 * metric.std():
-                print("Excellent")
+                tiered_data["Excellent"].append(column)
             elif current_value <= metric.mean() - metric.std():
-                print("Good")
+                tiered_data["Good"].append(column)
             elif current_value <= metric.mean() + metric.std():
-                print("Normal")
+                tiered_data["Normal"].append(column)
             elif current_value <= metric.mean() + 2 * metric.std():
-                print("Poor")
+                tiered_data["Poor"].append(column)
             else:
-                print("Very Poor")
+                tiered_data["Very Poor"].append(column)
         elif dist_type == "non-normal" or dist_type == "count-non-normal":
             # visual inspection via Q-Q plot
             # stats.probplot(metric, dist="norm", plot=pylab)
@@ -152,21 +155,19 @@ def tier_data():
             current_value = test_row[column]
 
             if current_value <= metric.nsmallest(round(len(metric) * 0.023 + 0.5)).values[-1]:
-                print("Excellent")
+                tiered_data["Excellent"].append(column)
             elif current_value <= metric.nsmallest(round(len(metric) * 0.159 + 0.5)).values[-1]:
-                print("Good")
+                tiered_data["Good"].append(column)
             elif current_value <= metric.nsmallest(round(len(metric) * 0.841 + 0.5)).values[-1]:
-                print("Normal")
+                tiered_data["Normal"].append(column)
             elif current_value <= metric.nsmallest(round(len(metric) * 0.977 + 0.5)).values[-1]:
-                print("Poor")
+                tiered_data["Poor"].append(column)
             else:
-                print("Very Poor")
+                tiered_data["Very Poor"].append(column)
 
         else:
             raise ValueError("Invalid distribution type. Use 'normal', 'non-normal' or 'count-non-normal'.")
 
-    print(counter)
+    # print(counter)
 
-
-if __name__ == "__main__":
-    tier_data()
+    return tiered_data

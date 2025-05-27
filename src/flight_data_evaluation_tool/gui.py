@@ -20,6 +20,7 @@ try:
         calculate_phase_evaluation_values,
     )
     from flight_data_evaluation_tool.plot import create_figure, create_heatmaps
+    from flight_data_evaluation_tool.grading import tier_data
 except ImportError:
     from datastructuring import structure_data, calculate_approach_phases
     from evaluation import (
@@ -28,6 +29,7 @@ except ImportError:
         calculate_phase_evaluation_values,
     )
     from plot import create_figure, create_heatmaps
+    from grading import tier_data
 
 
 class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
@@ -97,6 +99,94 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
             A list of file paths for the checked checkboxes.
         """
         return [self.checkbox_dict[checkbox] for checkbox in self.checkbox_dict.keys() if checkbox.get() == 1]
+
+
+class CTkCollapsiblePanel(customtkinter.CTkFrame):
+    def __init__(self, master, title, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+
+        self.title = "▸ " + title
+
+        self._collapsed = True
+
+        self.header_frame = customtkinter.CTkFrame(self)
+        self.header_frame.pack(fill="x")
+
+        self._content_frame = customtkinter.CTkFrame(self)
+
+        self.header_button = customtkinter.CTkButton(
+            self.header_frame,
+            text=self.title,
+            command=self.toggle,
+            anchor="w",
+        )
+        self.header_button.pack(fill="x", padx=5, pady=2)
+
+    def toggle(self):
+        text = self.header_button.cget("text")[2:]
+
+        if self._collapsed:
+            self._content_frame.pack(fill="x", expand=False)
+            self.header_button.configure(text="▾ " + text)
+        else:
+            self._content_frame.pack_forget()
+            self.header_button.configure(text="▸ " + text)
+        self._collapsed = not self._collapsed
+
+
+class PhasesTabView(customtkinter.CTkTabview):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        # create tabs
+        self.tabs = ["Alignment Phase", "Approach Phase", "Final Approach Phase", "Total Flight"]
+        self.evaluation_tiers = ["Excellent", "Good", "Normal", "Poor", "Very Poor"]
+        self.panels = {tab: {} for tab in self.tabs}
+
+        for tab in self.tabs:
+            self.add(tab)
+            scrollableFrame = customtkinter.CTkScrollableFrame(self.tab(tab), width=1000, height=600)
+            scrollableFrame.pack(fill="both", expand=True, padx=15, pady=15)
+
+            for evaluation_tier in self.evaluation_tiers:
+                self.panels[tab][evaluation_tier] = CTkCollapsiblePanel(scrollableFrame, title=evaluation_tier)
+                self.panels[tab][evaluation_tier].pack(fill="x", pady=10, padx=10)
+
+
+class EvaluationWindow(customtkinter.CTkToplevel):
+    def __init__(self, master, evaluated_results, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.title("Evaluation of Flight Data")
+
+        self.iconbitmap(default=icon_path)
+
+        phases_tabview = PhasesTabView(master=self)
+        phases_tabview.pack(fill="both", expand=True, padx=15, pady=15)
+
+        for tab in phases_tabview.tabs:
+            tiered_data = tier_data(evaluated_results, tab)
+
+            for evaluation_tier in phases_tabview.evaluation_tiers:
+                if tiered_data[evaluation_tier]:
+                    panel = phases_tabview.panels[tab][evaluation_tier]
+                    panel.header_button.configure(text=f"{panel.title} ({len(tiered_data[evaluation_tier])})")
+                    for item in tiered_data[evaluation_tier]:
+                        label = customtkinter.CTkLabel(panel._content_frame, text=item, anchor="w")
+                        label.pack(fill="x", padx=10, pady=2)
+                else:
+                    panel = phases_tabview.panels[tab][evaluation_tier]
+                    panel.header_button.configure(text=f"{panel.title} (0)")
+
+        # lift TopLevelWindow in front
+        self.lift()
+        self.focus_force()
+        self.after(10, self.focus_force)
+
+        # Because CTkToplevel currently is bugged on windows and doesn't check if a user specified icon is set we need
+        # to set the icon again after 200ms
+        if sys.platform.startswith("win"):
+            self.after(200, lambda: self.iconbitmap(icon_path))
 
 
 class HeatMapWindow(customtkinter.CTkToplevel):
@@ -283,10 +373,10 @@ class PlotWindow(customtkinter.CTkToplevel):
 
         # Add various buttons
         if x_axis_type == "SimTime":
-            evaluate_button = customtkinter.CTkButton(
-                master=self, text="Add flight to database", command=self.evaluate_button_event
+            add_to_databse_button = customtkinter.CTkButton(
+                master=self, text="Add flight to database", command=self.add_to_database_button_event
             )
-            evaluate_button.grid(row=4, column=2, padx=15, pady=15, sticky="s")
+            add_to_databse_button.grid(row=4, column=2, padx=15, pady=15, sticky="s")
         else:
             self.switch_var = customtkinter.StringVar(value="on")
             phases_switch = customtkinter.CTkSwitch(
@@ -297,7 +387,7 @@ class PlotWindow(customtkinter.CTkToplevel):
                 onvalue="on",
                 offvalue="off",
             )
-            phases_switch.grid(row=4, column=0, padx=15, pady=15, sticky="s")
+            phases_switch.grid(row=4, column=2, padx=15, pady=15, sticky="s")
 
         print_button = customtkinter.CTkButton(
             master=self, text="Save Plots individually", command=self.print_button_event
@@ -309,6 +399,11 @@ class PlotWindow(customtkinter.CTkToplevel):
             master=self, text="Show Heatmaps for Flight Phases", command=self.heatmap_button_event
         )
         heatmap_button.grid(row=4, column=0, padx=15, pady=15, sticky="s")
+
+        evaluation_button = customtkinter.CTkButton(
+            master=self, text="Evaluate Flight Phases", command=self.evaluate_button_event
+        )
+        evaluation_button.grid(row=5, column=0, padx=15, pady=15, sticky="s")
 
         # create execution info box
         self.execution_info = customtkinter.CTkLabel(
@@ -393,7 +488,7 @@ class PlotWindow(customtkinter.CTkToplevel):
 
             self.update_phase_lines(phase, self.master.data_frame["SimTime"].iloc[new_index])
 
-    def evaluate_button_event(self):
+    def add_to_database_button_event(self):
         """
         Handles the event triggered by the evaluate button.
         This method performs the following steps:
@@ -458,6 +553,38 @@ class PlotWindow(customtkinter.CTkToplevel):
         self.lift()
         self.focus_force()
         self.after(10, self.focus_force)
+
+    def evaluate_button_event(self):
+        self.execution_info.configure(text="", fg_color="transparent")
+
+        sorted = True
+        for counter, _ in enumerate(list(self.phases.values())[0:-1]):
+            if list(self.phases.values())[counter] > list(self.phases.values())[counter + 1]:
+                sorted = False
+
+        if not sorted:
+            messagebox.showerror(
+                "Phase Timestamps Error",
+                f"Phase Timestamp have to be in ascending order (from smallest to largest) but are actually not: {self.phases}.\n"
+                "Make sure that the order of the phases is: Alignment Start <= Approach Start <= Final Approach Start <= Docking Time",
+            )
+            self.execution_info.configure(text="Phase Timestamps Error", fg_color="#ED2939")
+            # lift TopLevelWindow in front
+            self.lift()
+            self.focus_force()
+            self.after(10, self.focus_force)
+            return
+
+        evaluated_results = evaluate_flight_phases(
+            self.master.data_frame,
+            list(self.phases.values()),
+            self.master.results,
+            export=False,
+        )
+
+        EvaluationWindow(self, evaluated_results)
+
+        self.execution_info.configure(text=f"Flight evaluated.", fg_color="#00ab41")
 
     def heatmap_button_event(self):
         """

@@ -692,7 +692,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
     return total_flight_errors
 
 
-def evaluate_flight_phases(flight_data, flight_phase_timestamps, results):
+def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, export=True):
     """
     Evaluates different phases of a flight based on provided flight data and timestamps, and updates the results dictionary.
     Args:
@@ -722,4 +722,7 @@ def evaluate_flight_phases(flight_data, flight_phase_timestamps, results):
         "Lateral Offset"
     ]
 
-    export_data(results, flight_data)
+    if export:
+        export_data(results, flight_data)
+    else:
+        return results.to_dict("index")[0]
