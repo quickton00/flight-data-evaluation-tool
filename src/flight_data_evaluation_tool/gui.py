@@ -1,4 +1,5 @@
 import customtkinter
+from CTkTable import CTkTable
 from tkinter import filedialog, messagebox
 import hashlib
 import os
@@ -114,11 +115,15 @@ class CTkCollapsiblePanel(customtkinter.CTkFrame):
 
         self._content_frame = customtkinter.CTkFrame(self)
 
+        header_button_fg = self._content_frame.cget("fg_color")
+
         self.header_button = customtkinter.CTkButton(
             self.header_frame,
             text=self.title,
             command=self.toggle,
             anchor="w",
+            hover_color=header_button_fg,
+            font=(None, 16),
         )
         self.header_button.pack(fill="x", padx=5, pady=2)
 
@@ -140,7 +145,13 @@ class PhasesTabView(customtkinter.CTkTabview):
 
         # create tabs
         self.tabs = ["Alignment Phase", "Approach Phase", "Final Approach Phase", "Total Flight"]
-        self.evaluation_tiers = ["Excellent", "Good", "Normal", "Poor", "Very Poor"]
+        self.evaluation_tiers = {
+            "Excellent": "#00ab41",
+            "Good": "#1AA260",
+            "Normal": "#f39c11",
+            "Poor": "#E55451",
+            "Very Poor": "#ED2939",
+        }
         self.panels = {tab: {} for tab in self.tabs}
 
         for tab in self.tabs:
@@ -151,6 +162,10 @@ class PhasesTabView(customtkinter.CTkTabview):
             for evaluation_tier in self.evaluation_tiers:
                 self.panels[tab][evaluation_tier] = CTkCollapsiblePanel(scrollableFrame, title=evaluation_tier)
                 self.panels[tab][evaluation_tier].pack(fill="x", pady=10, padx=10)
+
+                self.panels[tab][evaluation_tier].header_button.configure(
+                    fg_color=self.evaluation_tiers[evaluation_tier]
+                )
 
 
 class EvaluationWindow(customtkinter.CTkToplevel):
@@ -171,9 +186,17 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 if tiered_data[evaluation_tier]:
                     panel = phases_tabview.panels[tab][evaluation_tier]
                     panel.header_button.configure(text=f"{panel.title} ({len(tiered_data[evaluation_tier])})")
+
+                    values = [["Name", "Value", "Mean", "Std", "Percentile"]]
                     for item in tiered_data[evaluation_tier]:
-                        label = customtkinter.CTkLabel(panel._content_frame, text=item, anchor="w")
-                        label.pack(fill="x", padx=10, pady=2)
+                        key = list(item.keys())[0]
+                        values.append(
+                            [key, item[key]["Value"], item[key]["Mean"], item[key]["Std"], item[key]["Percentile"]]
+                        )
+
+                    table = CTkTable(panel._content_frame, row=len(values), column=5, values=values)
+                    table.pack(fill="both", padx=10, pady=2)
+
                 else:
                     panel = phases_tabview.panels[tab][evaluation_tier]
                     panel.header_button.configure(text=f"{panel.title} (0)")

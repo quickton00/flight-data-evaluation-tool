@@ -87,29 +87,29 @@ def tier_metric(raw_metric, alpha=0.05):
         metric_power, transformer = transform_data(metric, transformer_type="power", method=method)
 
         if is_normal(metric_power, alpha):
-            return "normal", metric_power, transformer
+            return "normal", metric, transformer
 
     # check if metric is quantile transformable if power transform fails
     quantile_metric, transformer = transform_data(metric, transformer_type="quantile")
 
     if is_normal(quantile_metric, alpha):
-        return "normal", quantile_metric, transformer
+        return "normal", metric, transformer
 
     if is_count_metric(raw_metric):
         return "count-non-normal", raw_metric, None
-    else:
-        return "non-normal", raw_metric, None
+
+    return "non-normal", raw_metric, None
 
 
 def tier_data(test_row, phase):
     phase_filter = {
-        "Alignment Phase": "Appr|FA|Total",
-        "Approach Phase": "Align|FA|Total",
-        "Final Approach Phase": "Align|Appr|Total",
+        "Alignment Phase": "Appr|FA|Total|Dock",
+        "Approach Phase": "Align|FA|Total|Dock",
+        "Final Approach Phase": "Align|Appr|Total|Dock",
         "Total Flight": "Align|Appr|FA",
     }[phase]
 
-    regex_filter = f"{phase_filter}|Flight ID|Dock|Date|Scenario|Manually modified Phases"
+    regex_filter = f"{phase_filter}|Flight ID|Date|Scenario|Manually modified Phases"
 
     json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
 
@@ -128,25 +128,35 @@ def tier_data(test_row, phase):
         counter[dist_type] += 1
 
         if dist_type == "normal":
-            if test_row[column] == 0:
-                tiered_data["Excellent"].append(column)
+            current_value = test_row[column]
+
+            data_obj = {
+                column: {
+                    "Value": round(current_value, 4),
+                    "Mean": round(metric.mean(), 4),
+                    "Std": round(metric.std(), 4),
+                    "Percentile": "",
+                }
+            }
+
+            if current_value == 0:
+                tiered_data["Excellent"].append(data_obj)
                 continue
 
             if transformer:
                 current_value = transformer.transform(np.array(test_row[column]).reshape(-1, 1))
-            else:
-                current_value = test_row[column]
+                metric = transformer.transform(metric.values.reshape(-1, 1)).flatten()
 
             if current_value <= metric.mean() - 2 * metric.std():
-                tiered_data["Excellent"].append(column)
+                tiered_data["Excellent"].append(data_obj)
             elif current_value <= metric.mean() - metric.std():
-                tiered_data["Good"].append(column)
+                tiered_data["Good"].append(data_obj)
             elif current_value <= metric.mean() + metric.std():
-                tiered_data["Normal"].append(column)
+                tiered_data["Normal"].append(data_obj)
             elif current_value <= metric.mean() + 2 * metric.std():
-                tiered_data["Poor"].append(column)
+                tiered_data["Poor"].append(data_obj)
             else:
-                tiered_data["Very Poor"].append(column)
+                tiered_data["Very Poor"].append(data_obj)
         elif dist_type == "non-normal" or dist_type == "count-non-normal":
             # visual inspection via Q-Q plot
             # stats.probplot(metric, dist="norm", plot=pylab)
@@ -154,16 +164,29 @@ def tier_data(test_row, phase):
 
             current_value = test_row[column]
 
+            sorted_metric = metric.sort_values(ignore_index=True)
+
+            data_obj = {
+                column: {
+                    "Value": round(current_value, 4),
+                    "Mean": round(metric.mean(), 4),
+                    "Std": round(metric.std(), 4),
+                    "Percentile": round(
+                        sorted_metric[sorted_metric <= current_value].index[-1] / len(sorted_metric), 4
+                    ),
+                }
+            }
+
             if current_value <= metric.nsmallest(round(len(metric) * 0.023 + 0.5)).values[-1]:
-                tiered_data["Excellent"].append(column)
+                tiered_data["Excellent"].append(data_obj)
             elif current_value <= metric.nsmallest(round(len(metric) * 0.159 + 0.5)).values[-1]:
-                tiered_data["Good"].append(column)
+                tiered_data["Good"].append(data_obj)
             elif current_value <= metric.nsmallest(round(len(metric) * 0.841 + 0.5)).values[-1]:
-                tiered_data["Normal"].append(column)
+                tiered_data["Normal"].append(data_obj)
             elif current_value <= metric.nsmallest(round(len(metric) * 0.977 + 0.5)).values[-1]:
-                tiered_data["Poor"].append(column)
+                tiered_data["Poor"].append(data_obj)
             else:
-                tiered_data["Very Poor"].append(column)
+                tiered_data["Very Poor"].append(data_obj)
 
         else:
             raise ValueError("Invalid distribution type. Use 'normal', 'non-normal' or 'count-non-normal'.")
