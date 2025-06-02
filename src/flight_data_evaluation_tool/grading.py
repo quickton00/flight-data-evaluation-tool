@@ -70,15 +70,11 @@ def tier_metric(raw_metric, alpha=0.05):
     # cut outliers greater than 3 std
     metric = raw_metric[lambda value: (value >= mean - 3 * std) & (value <= mean + 3 * std)]
 
-    if is_zero_inflated(metric, alpha):
-        # TODO: include zeros in second part of hurdle model data,
-        # e.g. for high zero inflation no excellent tier in non-zero data
-
-        # zero inflation detected
-        metric = metric[metric > 0]  # remove zeros for power transformation
+    if is_zero_inflated(metric, alpha) and is_count_metric(metric):
+        return "zero-inflated", metric, None, True
 
     if len(metric) == 0 or is_normal(metric, alpha):
-        return "normal", metric, None
+        return "normal", metric, None, False
 
     for method in ["box-cox", "yeo-johnson"]:
         if (method == "box-cox" and (metric <= 0).any()) or metric.eq(metric.iloc[0]).all():
@@ -87,18 +83,18 @@ def tier_metric(raw_metric, alpha=0.05):
         metric_power, transformer = transform_data(metric, transformer_type="power", method=method)
 
         if is_normal(metric_power, alpha):
-            return "normal", metric, transformer
+            return "normal", metric, transformer, False
 
     # check if metric is quantile transformable if power transform fails
     quantile_metric, transformer = transform_data(metric, transformer_type="quantile")
 
     if is_normal(quantile_metric, alpha):
-        return "normal", metric, transformer
+        return "normal", metric, transformer, False
 
     if is_count_metric(raw_metric):
-        return "count-non-normal", raw_metric, None
+        return "count-non-normal", raw_metric, None, False
 
-    return "non-normal", raw_metric, None
+    return "non-normal", raw_metric, None, False
 
 
 def tier_data(test_row, phase):
@@ -118,16 +114,16 @@ def tier_data(test_row, phase):
 
     database = database[database.columns.drop(list(database.filter(regex=regex_filter)))]
 
-    counter = {"normal": 0, "non-normal": 0, "count-non-normal": 0}
+    counter = {"normal": 0, "non-normal": 0, "count-non-normal": 0, "zero-inflated": 0}
 
     tiered_data = {"Excellent": [], "Good": [], "Normal": [], "Poor": [], "Very Poor": []}
 
     for column in database:
-        dist_type, metric, transformer = tier_metric(database[column])
+        dist_type, metric, transformer, zero_inflated = tier_metric(database[column])
 
         counter[dist_type] += 1
 
-        if dist_type == "normal":
+        if dist_type == "normal" and not zero_inflated:
             current_value = test_row[column]
 
             data_obj = {
@@ -135,6 +131,7 @@ def tier_data(test_row, phase):
                     "Value": round(current_value, 4),
                     "Mean": round(metric.mean(), 4),
                     "Std": round(metric.std(), 4),
+                    "Type": dist_type,
                     "Percentile": "",
                 }
             }
@@ -157,7 +154,7 @@ def tier_data(test_row, phase):
                 tiered_data["Poor"].append(data_obj)
             else:
                 tiered_data["Very Poor"].append(data_obj)
-        elif dist_type == "non-normal" or dist_type == "count-non-normal":
+        elif dist_type == "non-normal" or dist_type == "count-non-normal" or zero_inflated:
             # visual inspection via Q-Q plot
             # stats.probplot(metric, dist="norm", plot=pylab)
             # pylab.show()
@@ -171,6 +168,7 @@ def tier_data(test_row, phase):
                     "Value": round(current_value, 4),
                     "Mean": round(metric.mean(), 4),
                     "Std": round(metric.std(), 4),
+                    "Type": dist_type,
                     "Percentile": round(
                         sorted_metric[sorted_metric <= current_value].index[-1] / len(sorted_metric), 4
                     ),

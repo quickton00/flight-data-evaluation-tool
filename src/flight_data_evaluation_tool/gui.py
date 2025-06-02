@@ -115,20 +115,21 @@ class CTkCollapsiblePanel(customtkinter.CTkFrame):
 
         self._content_frame = customtkinter.CTkFrame(self)
 
-        header_button_fg = self._content_frame.cget("fg_color")
-
         self.header_button = customtkinter.CTkButton(
             self.header_frame,
             text=self.title,
             command=self.toggle,
             anchor="w",
-            hover_color=header_button_fg,
             font=(None, 16),
         )
         self.header_button.pack(fill="x", padx=5, pady=2)
 
     def toggle(self):
         text = self.header_button.cget("text")[2:]
+
+        # Only expand if content frame is not empty
+        if self._collapsed and not self._content_frame.winfo_children():
+            return
 
         if self._collapsed:
             self._content_frame.pack(fill="x", expand=False)
@@ -159,13 +160,19 @@ class PhasesTabView(customtkinter.CTkTabview):
             scrollableFrame = customtkinter.CTkScrollableFrame(self.tab(tab), width=1000, height=600)
             scrollableFrame.pack(fill="both", expand=True, padx=15, pady=15)
 
-            for evaluation_tier in self.evaluation_tiers:
+            for evaluation_tier, color in self.evaluation_tiers.items():
                 self.panels[tab][evaluation_tier] = CTkCollapsiblePanel(scrollableFrame, title=evaluation_tier)
                 self.panels[tab][evaluation_tier].pack(fill="x", pady=10, padx=10)
 
-                self.panels[tab][evaluation_tier].header_button.configure(
-                    fg_color=self.evaluation_tiers[evaluation_tier]
-                )
+                self.panels[tab][evaluation_tier].header_button.configure(fg_color=color)
+
+                # Get current color and make it 15% darker for hover effect
+                r = int(color[1:3], 16)
+                g = int(color[3:5], 16)
+                b = int(color[5:7], 16)
+                darker_factor = 0.85
+                darker_color = f"#{int(r * darker_factor):02x}{int(g * darker_factor):02x}{int(b * darker_factor):02x}"
+                self.panels[tab][evaluation_tier].header_button.configure(hover_color=darker_color)
 
 
 class EvaluationWindow(customtkinter.CTkToplevel):
@@ -187,14 +194,21 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                     panel = phases_tabview.panels[tab][evaluation_tier]
                     panel.header_button.configure(text=f"{panel.title} ({len(tiered_data[evaluation_tier])})")
 
-                    values = [["Name", "Value", "Mean", "Std", "Percentile"]]
+                    values = [["Name", "Value", "Mean", "Std", "Type", "Percentile"]]
                     for item in tiered_data[evaluation_tier]:
                         key = list(item.keys())[0]
                         values.append(
-                            [key, item[key]["Value"], item[key]["Mean"], item[key]["Std"], item[key]["Percentile"]]
+                            [
+                                key,
+                                item[key]["Value"],
+                                item[key]["Mean"],
+                                item[key]["Std"],
+                                item[key]["Type"],
+                                item[key]["Percentile"],
+                            ]
                         )
 
-                    table = CTkTable(panel._content_frame, row=len(values), column=5, values=values)
+                    table = CTkTable(panel._content_frame, row=len(values), column=len(values[0]), values=values)
                     table.pack(fill="both", padx=10, pady=2)
 
                 else:

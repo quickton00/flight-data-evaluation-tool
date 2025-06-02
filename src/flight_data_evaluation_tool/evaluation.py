@@ -718,7 +718,7 @@ def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, export
 
     # calculate exceptions
     results["Time_Dock"] = flight_phase_timestamps[3]
-    results["LatOffsetAt_Dock"] = flight_data[flight_data["SimTime"] == flight_phase_timestamps[3]].iloc[0][
+    results["LatOffsetAt_Dock"] = flight_data[flight_data["SimTime"] < flight_phase_timestamps[3]].iloc[-1][
         "Lateral Offset"
     ]
 
