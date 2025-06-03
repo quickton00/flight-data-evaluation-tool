@@ -322,6 +322,8 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                 results[f"{controller}{coordinate}AvgTime_{phase}"] = 0
 
     # calculation for "THCxErr_{phase}" and "THCxIndErr_{phase}"
+    results[f"THCErr_{phase}"] = 0
+
     flight_errors = flight_data[
         (
             (
@@ -352,7 +354,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
         )
     ]
 
-    results[f"THCxErr_{phase}"] = len(flight_errors)
+    results[f"THCErr_{phase}"] += len(flight_errors)
 
     if phase == "Total":
         total_flight_errors["THC.x"] = flight_errors["SimTime"].to_list()
@@ -362,6 +364,8 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
         results[f"THCxIndErr_{phase}"] = len(flight_errors[flight_errors[["THC.y", "THC.z"]].any(axis=1)])
 
     # calculation for "{controller}{coordinate}Err_{phase}" and "{controller}{coordinate}IndErr_{phase}" except THC.x
+    results[f"RHCErr_{phase}"] = 0
+
     for coordinate in ["x", "y", "z"]:
         for controller, value_name in {
             "THC": f"COG Pos.{coordinate} [m]",
@@ -492,7 +496,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                 total_flight_errors[f"{controller}.{coordinate}"] = flight_errors["SimTime"].to_list()
 
             # calculation for "{controller}{coordinate}Err_{phase}"
-            results[f"{controller}{coordinate}Err_{phase}"] = len(flight_errors)
+            results[f"{controller}Err_{phase}"] += len(flight_errors)
 
             # calculation for "{controller}{coordinate}IndErr_{phase}"
             if f"{controller}{coordinate}IndErr_{phase}" in results.columns:
@@ -651,20 +655,25 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             [stop_steering_timestamps[i] - start_steering_timestamps[i] for i in range(len(start_steering_timestamps))]
         )
 
-    # calculation for PSD values for {controller}.{coordinate}_{phase}
+    # calculation for PSD values controller-wise
     for controller in ["THC", "RHC"]:
-        for coordinate in ["x", "y", "z"]:
+        filtered_flight_data = flight_data[
+            (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+            & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+        ]
 
-            filtered_flight_data = flight_data[
-                (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
-                & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
-            ]
+        # Combine all coordinates for each controller
+        combined_signal = np.sqrt(
+            filtered_flight_data[f"{controller}.x"] ** 2
+            + filtered_flight_data[f"{controller}.y"] ** 2
+            + filtered_flight_data[f"{controller}.z"] ** 2
+        )
 
-            N = len(filtered_flight_data)
-            yf = np.fft.fft(filtered_flight_data[f"{controller}.{coordinate}"])
-            psd = np.abs(yf) ** 2 / N
+        N = len(filtered_flight_data)
+        yf = np.fft.fft(combined_signal)
+        psd = np.abs(yf) ** 2 / N
 
-            results[f"{controller}{coordinate}PSD_{phase}"] = np.mean(psd)
+        results[f"{controller}PSD_{phase}"] = np.mean(psd)
 
     # calculation for Average and rms values
     for result_name, column_name in {
