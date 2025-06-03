@@ -5,6 +5,8 @@ import scipy.stats as stats
 from scipy.stats import chi2
 from scipy.stats import shapiro, normaltest, anderson
 from sklearn.preprocessing import PowerTransformer, QuantileTransformer
+from crispyn import weighting_methods as mcda_weights
+from crispyn import normalizations as norm_methods
 
 
 def is_normal(data, alpha=0.05):
@@ -114,6 +116,11 @@ def tier_data(test_row, phase):
 
     database = database[database.columns.drop(list(database.filter(regex=regex_filter)))]
 
+    weights = pd.DataFrame(
+        [calculate_phase_weights(database)],
+        columns=database.columns,
+    )
+
     counter = {"normal": 0, "non-normal": 0, "count-non-normal": 0, "zero-inflated": 0}
 
     tiered_data = {"Excellent": [], "Good": [], "Normal": [], "Poor": [], "Very Poor": []}
@@ -128,10 +135,11 @@ def tier_data(test_row, phase):
 
             data_obj = {
                 column: {
-                    "Value": round(current_value, 4),
-                    "Mean": round(metric.mean(), 4),
-                    "Std": round(metric.std(), 4),
+                    "Value": current_value,
+                    "Mean": metric.mean(),
+                    "Std": metric.std(),
                     "Type": dist_type,
+                    "Weight": weights[column].iloc[0],
                     "Percentile": "",
                 }
             }
@@ -165,13 +173,12 @@ def tier_data(test_row, phase):
 
             data_obj = {
                 column: {
-                    "Value": round(current_value, 4),
-                    "Mean": round(metric.mean(), 4),
-                    "Std": round(metric.std(), 4),
+                    "Value": current_value,
+                    "Mean": metric.mean(),
+                    "Std": metric.std(),
                     "Type": dist_type,
-                    "Percentile": round(
-                        sorted_metric[sorted_metric <= current_value].index[-1] / len(sorted_metric), 4
-                    ),
+                    "Weight": weights[column].iloc[0],
+                    "Percentile": sorted_metric[sorted_metric <= current_value].index[-1] / len(sorted_metric),
                 }
             }
 
@@ -192,3 +199,11 @@ def tier_data(test_row, phase):
     # print(counter)
 
     return tiered_data
+
+
+def calculate_phase_weights(data):
+    data = data.to_numpy()
+
+    weights = mcda_weights.critic_weighting(data)
+
+    return weights

@@ -186,27 +186,43 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         phases_tabview = PhasesTabView(master=self)
         phases_tabview.pack(fill="both", expand=True, padx=15, pady=15)
 
+        sub_grades = {"Alignment Phase": 0, "Approach Phase": 0, "Final Approach Phase": 0}
+        tier_factors = {
+            "Excellent": 1,
+            "Good": 2,
+            "Normal": 3,
+            "Poor": 4,
+            "Very Poor": 5,
+        }
+        phase_relevance_factors = {"Alignment Phase": 0.2, "Approach Phase": 0.3, "Final Approach Phase": 0.5}
+
         for tab in phases_tabview.tabs:
             tiered_data = tier_data(evaluated_results, tab)
 
             for evaluation_tier in phases_tabview.evaluation_tiers:
                 if tiered_data[evaluation_tier]:
+
                     panel = phases_tabview.panels[tab][evaluation_tier]
                     panel.header_button.configure(text=f"{panel.title} ({len(tiered_data[evaluation_tier])})")
 
-                    values = [["Name", "Value", "Mean", "Std", "Type", "Percentile"]]
+                    if tab != "Total Flight":
+                        column_keys = ["Value", "Mean", "Std", "Type", "Weight", "Percentile"]
+                    else:
+                        column_keys = ["Value", "Mean", "Std", "Type", "Percentile"]
+
+                    values = [["Name"] + column_keys]
                     for item in tiered_data[evaluation_tier]:
                         key = list(item.keys())[0]
                         values.append(
-                            [
-                                key,
-                                item[key]["Value"],
-                                item[key]["Mean"],
-                                item[key]["Std"],
-                                item[key]["Type"],
-                                item[key]["Percentile"],
+                            [key]
+                            + [
+                                round(item[key][col], 4) if isinstance(item[key][col], float) else item[key][col]
+                                for col in column_keys
                             ]
                         )
+
+                        if "Weight" in column_keys:
+                            sub_grades[tab] += item[key]["Weight"] * tier_factors[evaluation_tier]
 
                     table = CTkTable(panel._content_frame, row=len(values), column=len(values[0]), values=values)
                     table.pack(fill="both", padx=10, pady=2)
@@ -214,6 +230,17 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 else:
                     panel = phases_tabview.panels[tab][evaluation_tier]
                     panel.header_button.configure(text=f"{panel.title} (0)")
+
+        print("Sub Grades:", sub_grades)
+
+        final_grade = 0
+        for phase, sub_grade in sub_grades.items():
+            final_grade += sub_grade * phase_relevance_factors[phase]
+
+        grade_label = customtkinter.CTkLabel(
+            master=self, text=f"Final Grade: {round(final_grade, 2)}", fg_color="transparent"
+        )
+        grade_label.pack(pady=15, padx=15)
 
         # lift TopLevelWindow in front
         self.lift()
