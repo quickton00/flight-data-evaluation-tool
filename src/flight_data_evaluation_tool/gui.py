@@ -183,6 +183,19 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
         self.iconbitmap(default=icon_path)
 
+        # Add meta data labels as separate elements
+        pilot_label = customtkinter.CTkLabel(
+            master=self,
+            text=f"Pilot ID: {self.master.results['Pilot'][0]}; Scenario: {self.master.results['Scenario'][0]}",
+            fg_color="#8A2BE2",  # Add purple background
+            text_color="white",
+            corner_radius=8,
+            anchor="w",
+            padx=5,
+            pady=5,
+        )
+        pilot_label.pack(anchor="center", padx=15, pady=15)
+
         phases_tabview = PhasesTabView(master=self)
         phases_tabview.pack(fill="both", expand=True, padx=15, pady=15)
 
@@ -231,14 +244,16 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                     panel = phases_tabview.panels[tab][evaluation_tier]
                     panel.header_button.configure(text=f"{panel.title} (0)")
 
-        print("Sub Grades:", sub_grades)
-
         final_grade = 0
         for phase, sub_grade in sub_grades.items():
             final_grade += sub_grade * phase_relevance_factors[phase]
 
+        sub_grades = {phase: round(sub_grade, 2) for phase, sub_grade in sub_grades.items()}
+
         grade_label = customtkinter.CTkLabel(
-            master=self, text=f"Final Grade: {round(final_grade, 2)}", fg_color="transparent"
+            master=self,
+            text=f"Sub Grades: {sub_grades} Final Grade: {round(final_grade, 2)}",
+            fg_color="transparent",
         )
         grade_label.pack(pady=15, padx=15)
 
@@ -284,15 +299,28 @@ class HeatMapWindow(customtkinter.CTkToplevel):
 
         toolbar = NavigationToolbar2Tk(self.canvas, self)
         toolbar.update()
-        toolbar.grid(row=0, column=0, sticky="ew")
+        toolbar.grid(row=1, column=0, sticky="ew")
 
-        self.canvas.get_tk_widget().grid(row=1, column=0, sticky="nsew")
+        self.canvas.get_tk_widget().grid(row=2, column=0, sticky="nsew")
         self.canvas.draw()
+
+        # Add meta data labels as separate elements
+        pilot_label = customtkinter.CTkLabel(
+            master=self,
+            text=f"Pilot ID: {self.master.results['Pilot'][0]}; Scenario: {self.master.results['Scenario'][0]}",
+            fg_color="#8A2BE2",  # Add purple background
+            text_color="white",
+            corner_radius=8,
+            anchor="w",
+            padx=5,
+            pady=5,
+        )
+        pilot_label.grid(row=0, column=0, sticky="n", padx=15, pady=15)
 
         print_button = customtkinter.CTkButton(
             master=self, text="Save Plots individually", command=self.print_button_event
         )
-        print_button.grid(row=2, column=0, padx=15, pady=15, sticky="s")
+        print_button.grid(row=3, column=0, padx=15, pady=15, sticky="s")
 
         # lift TopLevelWindow in front
         self.lift()
@@ -300,7 +328,7 @@ class HeatMapWindow(customtkinter.CTkToplevel):
         self.after(10, self.focus_force)
 
         # Make the canvas and toolbar resize with the window
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
         self.grid_columnconfigure((0, 1), weight=1)
 
         # Because CTkToplevel currently is bugged on windows and doesn't check if a user specified icon is set we need
@@ -399,10 +427,28 @@ class PlotWindow(customtkinter.CTkToplevel):
 
         toolbar = NavigationToolbar2Tk(self.canvas, self)
         toolbar.update()
-        toolbar.grid(row=0, column=0, columnspan=4, sticky="ew")
+        toolbar.grid(row=1, column=0, columnspan=4, sticky="ew")
 
-        self.canvas.get_tk_widget().grid(row=1, column=0, columnspan=4, sticky="nsew")
+        self.canvas.get_tk_widget().grid(row=2, column=0, columnspan=4, sticky="nsew")
         self.canvas.draw()
+
+        # Add meta data labels as separate elements
+        pilot_label = customtkinter.CTkLabel(
+            master=self,
+            text=f"Pilot ID: {self.master.results['Pilot'][0]}; Scenario: {self.master.results['Scenario'][0]}",
+            fg_color="#8A2BE2",  # Add purple background
+            text_color="white",
+            corner_radius=8,
+            anchor="w",
+            padx=5,
+            pady=5,
+        )
+        pilot_label.grid(row=0, column=0, sticky="w", padx=5, pady=5)
+
+        evaluation_button = customtkinter.CTkButton(
+            master=self, text="Evaluate Flight Phases", command=self.evaluate_button_event
+        )
+        evaluation_button.grid(row=0, column=3, sticky="s", padx=5, pady=5)
 
         # Add phase number fields
         self.entries = {}
@@ -413,7 +459,7 @@ class PlotWindow(customtkinter.CTkToplevel):
                 master=self, text=f"{phase} {self.phases[phase]}", fg_color="transparent", anchor="w"
             )
             self.entries[phase] = entry
-            entry.grid(row=2, column=counter, sticky="sew")
+            entry.grid(row=3, column=counter, sticky="sew")
 
         # Add sliders for Flight Phase
         if x_axis_type == "SimTime":
@@ -429,7 +475,7 @@ class PlotWindow(customtkinter.CTkToplevel):
                 )
                 self.sliders[phase] = slider
                 slider.set(self.phases[phase])
-                slider.grid(row=3, column=counter, sticky="sew")
+                slider.grid(row=4, column=counter, sticky="sew")
                 slider._canvas.bind("<Button-1>", self.on_focus)
                 # Bind arrow keys for keyboard control
                 slider._canvas.bind("<Left>", partial(self.keyboard_slider_control, slider, phase, "left"))
@@ -440,7 +486,7 @@ class PlotWindow(customtkinter.CTkToplevel):
             add_to_databse_button = customtkinter.CTkButton(
                 master=self, text="Add flight to database", command=self.add_to_database_button_event
             )
-            add_to_databse_button.grid(row=4, column=2, padx=15, pady=15, sticky="s")
+            add_to_databse_button.grid(row=5, column=2, padx=15, pady=15, sticky="s")
         else:
             self.switch_var = customtkinter.StringVar(value="on")
             phases_switch = customtkinter.CTkSwitch(
@@ -451,29 +497,24 @@ class PlotWindow(customtkinter.CTkToplevel):
                 onvalue="on",
                 offvalue="off",
             )
-            phases_switch.grid(row=4, column=2, padx=15, pady=15, sticky="s")
+            phases_switch.grid(row=5, column=2, padx=15, pady=15, sticky="s")
 
         print_button = customtkinter.CTkButton(
             master=self, text="Save Plots individually", command=self.print_button_event
         )
-        print_button.grid(row=4, column=1, padx=15, pady=15, sticky="s")
+        print_button.grid(row=5, column=1, padx=15, pady=15, sticky="s")
 
         # Button for Heatmap Calculation
         heatmap_button = customtkinter.CTkButton(
             master=self, text="Show Heatmaps for Flight Phases", command=self.heatmap_button_event
         )
-        heatmap_button.grid(row=4, column=0, padx=15, pady=15, sticky="s")
-
-        evaluation_button = customtkinter.CTkButton(
-            master=self, text="Evaluate Flight Phases", command=self.evaluate_button_event
-        )
-        evaluation_button.grid(row=5, column=0, padx=15, pady=15, sticky="s")
+        heatmap_button.grid(row=5, column=0, padx=15, pady=15, sticky="s")
 
         # create execution info box
         self.execution_info = customtkinter.CTkLabel(
             master=self, text="", fg_color="transparent", corner_radius=15, wraplength=350
         )
-        self.execution_info.grid(row=4, column=3)
+        self.execution_info.grid(row=5, column=3)
         if _failed_error_calculation_:
             self.execution_info.configure(
                 text="Flight Errors could not be determined. Check if scenario is a docking scenario!",
@@ -486,7 +527,7 @@ class PlotWindow(customtkinter.CTkToplevel):
         self.after(10, self.focus_force)
 
         # Make the canvas and toolbar resize with the window
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
         self.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
         # Because CTkToplevel currently is bugged on windows and doesn't check if a user specified icon is set we need

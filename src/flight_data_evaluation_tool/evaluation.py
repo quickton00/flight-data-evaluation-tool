@@ -64,6 +64,10 @@ def start_stop_condition_evaluation(
     # calculate timestamps where steering stops
     stop_steering_timestamps = flight_data[stop_condition]["SimTime"].to_list()
 
+    # Remove duplicates while preserving order
+    start_steering_timestamps = list(dict.fromkeys(start_steering_timestamps))
+    stop_steering_timestamps = list(dict.fromkeys(stop_steering_timestamps))
+
     # correct missing timestamps due to individual phase calculation
     if len(start_steering_timestamps) < len(stop_steering_timestamps):
         start_steering_timestamps.insert(0, flight_phase_timestamps[start_index])
