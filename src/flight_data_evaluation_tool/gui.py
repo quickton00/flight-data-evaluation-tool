@@ -680,6 +680,16 @@ class PlotWindow(customtkinter.CTkToplevel):
             self.after(10, self.focus_force)
             return
 
+        if not os.path.exists(
+            f"src/flight_data_evaluation_tool/database/{self.master.results["Scenario"][0]}_flight_data.json"
+        ):
+            messagebox.showerror(
+                "Data Error",
+                f"For Flight scenario {self.master.results['Scenario'][0]} no data exists in the database.",
+            )
+            self.execution_info.configure(text="No Evaluation Data for this Flight Scenario.", fg_color="#ED2939")
+            return
+
         evaluated_results = evaluate_flight_phases(
             self.master.data_frame,
             list(self.phases.values()),

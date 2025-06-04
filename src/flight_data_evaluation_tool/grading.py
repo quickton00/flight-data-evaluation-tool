@@ -109,7 +109,7 @@ def tier_data(test_row, phase):
 
     regex_filter = f"{phase_filter}|Flight ID|Date|Scenario|Manually modified Phases"
 
-    json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
+    json_file_path = f"src/flight_data_evaluation_tool/database/{test_row["Scenario"]}_flight_data.json"
 
     # Load database
     database = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
@@ -171,6 +171,11 @@ def tier_data(test_row, phase):
 
             sorted_metric = metric.sort_values(ignore_index=True)
 
+            try:
+                percentile = sorted_metric[sorted_metric <= current_value].index[-1] / len(sorted_metric)
+            except IndexError:
+                percentile = 0.0
+
             data_obj = {
                 column: {
                     "Value": current_value,
@@ -178,7 +183,7 @@ def tier_data(test_row, phase):
                     "Std": metric.std(),
                     "Type": dist_type,
                     "Weight": weights[column].iloc[0],
-                    "Percentile": sorted_metric[sorted_metric <= current_value].index[-1] / len(sorted_metric),
+                    "Percentile": percentile,
                 }
             }
 

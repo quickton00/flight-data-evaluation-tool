@@ -101,12 +101,12 @@ def export_data(results: pd.DataFrame, flight_data: pd.DataFrame):
 
     # TODO disable function and button for exe
 
+    json_file_path = f"src/flight_data_evaluation_tool/database/{results["Scenario"][0]}_flight_data.json"
+
     try:
         results = results.copy().drop(columns=["Logger Version", "Session ID", "Pilot"])
     except KeyError:
         pass
-
-    json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
 
     if os.path.exists(json_file_path):
         existing_data = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
@@ -118,7 +118,10 @@ def export_data(results: pd.DataFrame, flight_data: pd.DataFrame):
 
     updated_data = updated_data.dropna(axis="columns", how="all")
 
-    flight_data.to_csv(f"data/{results['Flight ID'][0]}.csv", index=False)
+    if not os.path.exists(f"data/{results['Scenario'][0]}"):
+        os.makedirs(f"data/{results['Scenario'][0]}")
+
+    flight_data.to_csv(f"data/{results["Scenario"][0]}/{results['Flight ID'][0]}.csv", index=False)
 
     # Save the updated data back to the JSON file
     updated_data.to_json(json_file_path, orient="records", lines=True, index=False)

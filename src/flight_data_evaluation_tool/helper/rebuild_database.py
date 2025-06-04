@@ -28,34 +28,54 @@ def rebuild_database(database_path=r"data"):
         - Flight phases are extracted from the results data for evaluation
     """
 
-    json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
+    # json_file_path = "src/flight_data_evaluation_tool/flight_data.json"
     template_file_path = r"src\flight_data_evaluation_tool\results_template.json"
 
-    results_json = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
+    base_path = "src/flight_data_evaluation_tool/database"
 
-    with open(template_file_path, "r") as f:
-        results_template = json.load(f)
+    json_file_paths = os.listdir(base_path)
 
-    for column in results_template["columns"]:
-        if column not in results_json.columns:
-            results_json[column] = None  # Add missing columns with default value `None`
+    for json_file_path in json_file_paths:
+        if not json_file_path.endswith(".json"):
+            continue
 
-    for column in results_json.columns:
-        if column not in results_template["columns"]:
-            results_json = results_json.drop(columns=column)
+        print(f"Processing file: {json_file_path}")
 
-    for file in os.listdir(database_path):
-        flight_data = pd.read_csv(os.path.join(database_path, file), float_precision="round_trip")
+        scenario = json_file_path.split("_")[0]
+        scenario_database_path = os.path.join(database_path, scenario)
 
-        results = results_json[results_json["Flight ID"] == os.path.splitext(file)[0]].reset_index(drop=True)
+        json_file_path = os.path.join(base_path, json_file_path)
 
-        phases = [results["Start_Align"][0], results["Start_Appr"][0], results["Start_FA"][0], results["Time_Dock"][0]]
+        results_json = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
 
-        evaluate_flight_phases(
-            flight_data,
-            phases,
-            results,
-        )
+        with open(template_file_path, "r") as f:
+            results_template = json.load(f)
+
+        for column in results_template["columns"]:
+            if column not in results_json.columns:
+                results_json[column] = None  # Add missing columns with default value `None`
+
+        for column in results_json.columns:
+            if column not in results_template["columns"]:
+                results_json = results_json.drop(columns=column)
+
+        for file in os.listdir(scenario_database_path):
+            flight_data = pd.read_csv(os.path.join(scenario_database_path, file), float_precision="round_trip")
+
+            results = results_json[results_json["Flight ID"] == os.path.splitext(file)[0]].reset_index(drop=True)
+
+            phases = [
+                results["Start_Align"][0],
+                results["Start_Appr"][0],
+                results["Start_FA"][0],
+                results["Time_Dock"][0],
+            ]
+
+            evaluate_flight_phases(
+                flight_data,
+                phases,
+                results,
+            )
 
 
 if __name__ == "__main__":
