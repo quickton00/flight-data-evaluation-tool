@@ -71,11 +71,15 @@ def rebuild_database(database_path=r"data"):
                 results["Time_Dock"][0],
             ]
 
-            evaluate_flight_phases(
-                flight_data,
-                phases,
-                results,
-            )
+            try:
+                evaluate_flight_phases(
+                    flight_data,
+                    phases,
+                    results,
+                )
+            except Exception as e:
+                print(f"Error processing {file}: {e}")
+                continue
 
 
 if __name__ == "__main__":

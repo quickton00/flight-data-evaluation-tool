@@ -632,6 +632,9 @@ class PlotWindow(customtkinter.CTkToplevel):
             self.after(10, self.focus_force)
             return
 
+        if not os.path.exists(f"data/{self.master.results['Scenario'][0]}"):
+            os.makedirs(f"data/{self.master.results['Scenario'][0]}")
+
         for file in os.listdir(f"data/{self.master.results['Scenario'][0]}"):
 
             if os.path.splitext(file)[0] == self.master.results["Flight ID"][0]:

@@ -6,7 +6,6 @@ from scipy.stats import chi2
 from scipy.stats import shapiro, normaltest, anderson
 from sklearn.preprocessing import PowerTransformer, QuantileTransformer
 from crispyn import weighting_methods as mcda_weights
-from crispyn import normalizations as norm_methods
 
 
 def is_normal(data, alpha=0.05):
@@ -207,8 +206,16 @@ def tier_data(test_row, phase):
 
 
 def calculate_phase_weights(data):
-    data = data.to_numpy()
+    # Identify non constant columns
+    variable_cols = data.columns[data.nunique() > 1]
 
-    weights = mcda_weights.critic_weighting(data)
+    # Calculate weights only for variable columns
+    if len(variable_cols) > 0:
+        variable_data = data[variable_cols].to_numpy()
+        variable_weights = mcda_weights.critic_weighting(variable_data)
+
+    # Build full weight vector (zero for constant columns)
+    weights = pd.Series(0.0, index=data.columns)
+    weights[variable_cols] = variable_weights
 
     return weights
