@@ -682,6 +682,30 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
 
         results[f"{controller}PSD_{phase}"] = np.mean(psd)
 
+    # calculation for "Aggressiveness_{phase}"
+
+    # calculation for "DutyCycle_{phase}"
+
+    # TODO: add threshold for duty cycle calculation
+
+    if f"DutyCycle_{phase}" in results.columns:
+        filtered_flight_data = flight_data[
+            (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+            & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+        ]
+
+        condition = (
+            (filtered_flight_data["THC.x"] != filtered_flight_data["THC.x"].shift(periods=1, fill_value=0))
+            | (filtered_flight_data["THC.y"] != filtered_flight_data["THC.y"].shift(periods=1, fill_value=0))
+            | (filtered_flight_data["THC.z"] != filtered_flight_data["THC.z"].shift(periods=1, fill_value=0))
+            | (filtered_flight_data["RHC.x"] != filtered_flight_data["RHC.x"].shift(periods=1, fill_value=0))
+            | (filtered_flight_data["RHC.y"] != filtered_flight_data["RHC.y"].shift(periods=1, fill_value=0))
+            | (filtered_flight_data["RHC.z"] != filtered_flight_data["RHC.z"].shift(periods=1, fill_value=0))
+        )
+
+        # Count the number of True values (changes) in the condition Series
+        results[f"DutyCycle_{phase}"] = condition.sum() / len(filtered_flight_data)
+
     # calculation for Average and rms values
     for result_name, column_name in {
         "LatOff": "Lateral Offset",

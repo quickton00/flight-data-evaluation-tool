@@ -63,6 +63,14 @@
     "PitchRms_Align": "min",
     "PitchRms_Appr": "min",
     "PitchRms_FA": "min",
-    "PitchRms_Total": "min"
+    "PitchRms_Total": "min",
+    "Aggressiveness_Align": "min",
+    "Aggressiveness_Appr": "min",
+    "Aggressiveness_FA": "min",
+    "Aggressiveness_Total": "min",
+    "DutyCycle_Align": "min",
+    "DutyCycle_Appr": "min",
+    "DutyCycle_FA": "min",
+    "DutyCycle_Total": "min"
   }
 }
