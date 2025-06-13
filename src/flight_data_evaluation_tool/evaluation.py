@@ -683,28 +683,81 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
         results[f"{controller}PSD_{phase}"] = np.mean(psd)
 
     # calculation for "Aggressiveness_{phase}"
+    if f"Aggressiveness_{phase}" in results.columns:
+        delta_max = 1.0  # assuming normalized inceptor range [-1, 1]
+        threshold = 0.02  # threshold for significant change
+
+        filtered_flight_data = flight_data[
+            (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
+            & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
+        ]
+
+        # Calculate aggressiveness for each axis and controller, then average
+        agg_values = []
+        for controller in ["THC", "RHC"]:
+            for axis in ["x", "y", "z"]:
+                delta = filtered_flight_data[f"{controller}.{axis}"].values
+                simtime = filtered_flight_data["SimTime"].values
+                if len(delta) < 2:
+                    continue
+                # Calculate per-sample rate of change
+                d_delta = delta[1:] - delta[:-1]
+                dt = simtime[1:] - simtime[:-1]
+                # Avoid division by zero
+                dt[dt == 0] = np.nan
+                x_i = np.where(np.abs(d_delta) < threshold, 0, d_delta / dt)
+                # Remove NaNs
+                x_i = x_i[~np.isnan(x_i)]
+                if len(x_i) > 0:
+                    rms = np.sqrt(np.mean(x_i**2))
+                    agg = (1 / delta_max) * rms
+                    agg_values.append(agg)
+        # Average across all axes/controllers
+        results[f"Aggressiveness_{phase}"] = np.mean(agg_values) if agg_values else 0
 
     # calculation for "DutyCycle_{phase}"
-
-    # TODO: add threshold for duty cycle calculation
-
     if f"DutyCycle_{phase}" in results.columns:
         filtered_flight_data = flight_data[
             (flight_data["SimTime"] >= flight_phase_timestamps[start_index])
             & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
         ]
 
+        # Define threshold for significant controller changes
+        threshold = 0.02
+
         condition = (
-            (filtered_flight_data["THC.x"] != filtered_flight_data["THC.x"].shift(periods=1, fill_value=0))
-            | (filtered_flight_data["THC.y"] != filtered_flight_data["THC.y"].shift(periods=1, fill_value=0))
-            | (filtered_flight_data["THC.z"] != filtered_flight_data["THC.z"].shift(periods=1, fill_value=0))
-            | (filtered_flight_data["RHC.x"] != filtered_flight_data["RHC.x"].shift(periods=1, fill_value=0))
-            | (filtered_flight_data["RHC.y"] != filtered_flight_data["RHC.y"].shift(periods=1, fill_value=0))
-            | (filtered_flight_data["RHC.z"] != filtered_flight_data["RHC.z"].shift(periods=1, fill_value=0))
+            (
+                abs(filtered_flight_data["THC.x"] - filtered_flight_data["THC.x"].shift(periods=1, fill_value=0))
+                > threshold
+            )
+            | (
+                abs(filtered_flight_data["THC.y"] - filtered_flight_data["THC.y"].shift(periods=1, fill_value=0))
+                > threshold
+            )
+            | (
+                abs(filtered_flight_data["THC.z"] - filtered_flight_data["THC.z"].shift(periods=1, fill_value=0))
+                > threshold
+            )
+            | (
+                abs(filtered_flight_data["RHC.x"] - filtered_flight_data["RHC.x"].shift(periods=1, fill_value=0))
+                > threshold
+            )
+            | (
+                abs(filtered_flight_data["RHC.y"] - filtered_flight_data["RHC.y"].shift(periods=1, fill_value=0))
+                > threshold
+            )
+            | (
+                abs(filtered_flight_data["RHC.z"] - filtered_flight_data["RHC.z"].shift(periods=1, fill_value=0))
+                > threshold
+            )
         )
 
         # Count the number of True values (changes) in the condition Series
         results[f"DutyCycle_{phase}"] = condition.sum() / len(filtered_flight_data)
+
+    # Calculation for "Workload_{phase}"
+    if f"Workload_{phase}" in results.columns:
+        results[f"Workload_{phase}"] = results[f"Aggressiveness_{phase}"] * results[f"DutyCycle_{phase}"]
 
     # calculation for Average and rms values
     for result_name, column_name in {

@@ -396,6 +396,9 @@ class PlotWindow(customtkinter.CTkToplevel):
     def __init__(self, master, phases, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.evaluation_window = None
+        self.heatmap_window = None
+
         self.master = master
         self.phases = {}
         for counter, phase in enumerate(
@@ -538,6 +541,10 @@ class PlotWindow(customtkinter.CTkToplevel):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def on_close(self):
+        if self.evaluation_window is not None and self.evaluation_window.winfo_exists():
+            self.evaluation_window.destroy()
+        if self.heatmap_window is not None and self.heatmap_window.winfo_exists():
+            self.heatmap_window.destroy()
         plt.close(self.figure)
         self.destroy()
 
@@ -700,7 +707,9 @@ class PlotWindow(customtkinter.CTkToplevel):
             export=False,
         )
 
-        EvaluationWindow(self, evaluated_results)
+        if self.evaluation_window is not None and self.evaluation_window.winfo_exists():
+            self.evaluation_window.destroy()
+        self.evaluation_window = EvaluationWindow(self, evaluated_results)
 
         self.execution_info.configure(text=f"Flight evaluated.", fg_color="#00ab41")
 
@@ -708,7 +717,9 @@ class PlotWindow(customtkinter.CTkToplevel):
         """
         Generate the Heatmaps of the flight according to slider position.
         """
-        HeatMapWindow(self, self.master.data_frame, list(self.phases.values()))
+        if self.heatmap_window is not None and self.heatmap_window.winfo_exists():
+            self.heatmap_window.destroy()
+        self.heatmap_window = HeatMapWindow(self, self.master.data_frame, list(self.phases.values()))
 
         self.execution_info.configure(text=f"Heatmaps created.", fg_color="#00ab41")
 

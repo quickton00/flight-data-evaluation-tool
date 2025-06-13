@@ -71,6 +71,10 @@
     "DutyCycle_Align": "min",
     "DutyCycle_Appr": "min",
     "DutyCycle_FA": "min",
-    "DutyCycle_Total": "min"
+    "DutyCycle_Total": "min",
+    "Workload_Align": "min",
+    "Workload_Appr": "min",
+    "Workload_FA": "min",
+    "Workload_Total": "min"
   }
 }
