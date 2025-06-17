@@ -183,6 +183,13 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
         self.iconbitmap(default=icon_path)
 
+        self.hist_window = None
+
+        self._hist_show_job = None
+        self._hist_close_job = None
+
+        self.metrics = {}
+
         # Add meta data labels as separate elements
         pilot_label = customtkinter.CTkLabel(
             master=self,
@@ -210,11 +217,10 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         phase_relevance_factors = {"Alignment Phase": 0.2, "Approach Phase": 0.3, "Final Approach Phase": 0.5}
 
         for tab in phases_tabview.tabs:
-            tiered_data = tier_data(evaluated_results, tab)
+            tiered_data, self.metrics[tab] = tier_data(evaluated_results, tab)
 
             for evaluation_tier in phases_tabview.evaluation_tiers:
                 if tiered_data[evaluation_tier]:
-
                     panel = phases_tabview.panels[tab][evaluation_tier]
                     panel.header_button.configure(text=f"{panel.title} ({len(tiered_data[evaluation_tier])})")
 
@@ -239,6 +245,20 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
                     table = CTkTable(panel._content_frame, row=len(values), column=len(values[0]), values=values)
                     table.pack(fill="both", padx=10, pady=2)
+
+                    # Add hover event for each row except header
+                    for row_idx in range(1, len(values)):
+                        row_key = values[row_idx][0]
+                        widget_row = [table.frame[(row_idx, col_idx)] for col_idx in range(len(values[0]))]
+                        # Bind <Enter> and <Leave> to all widgets in the row
+                        for cell_widget in widget_row:
+                            cell_widget.bind(
+                                "<Enter>", lambda e, metric=row_key, tab=tab: self._on_row_hover(metric, tab)
+                            )
+                            cell_widget.bind(
+                                "<Leave>",
+                                lambda e, row_idx=row_idx, table=table: self._on_row_leave_row(row_idx, table),
+                            )
 
                 else:
                     panel = phases_tabview.panels[tab][evaluation_tier]
@@ -266,6 +286,129 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         # to set the icon again after 200ms
         if sys.platform.startswith("win"):
             self.after(200, lambda: self.iconbitmap(icon_path))
+
+    def close_hist_window(self, event=None):
+        """
+        Close the histogram window if it exists.
+        """
+        if self.hist_window is not None and self.hist_window.winfo_exists():
+            self.hist_window.destroy()
+            self.hist_window = None
+
+    def show_hist_window(self, metric, tab):
+        """
+        Display a histogram window for the given metric and tab.
+        """
+        # Close any existing window
+        self.close_hist_window()
+        self._hist_close_job = None
+
+        data = self.metrics[tab][metric]
+
+        # Create the histogram window
+        self.hist_window = customtkinter.CTkToplevel(self)
+        self.hist_window.title(f"Distribution for {metric} ({tab})")
+        self.hist_window.geometry("400x300+{}+{}".format(self.winfo_pointerx(), self.winfo_pointery()))
+
+        # Bring the window to the front and focus it
+        self.hist_window.lift()
+        self.hist_window.focus_force()
+        self.hist_window.after(10, self.hist_window.focus_force)
+
+        fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
+        ax.hist(data, bins=20, color="#8A2BE2", edgecolor="black")
+        ax.set_title(f"{metric} Distribution")
+        ax.set_xlabel("Value")
+        ax.set_ylabel("Frequency")
+        fig.tight_layout()
+
+        canvas = FigureCanvasTkAgg(fig, master=self.hist_window)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        # Bind enter/leave events to the histogram window
+        self.hist_window.bind("<Enter>", self._on_hist_enter)
+        self.hist_window.bind("<Leave>", self._on_hist_leave)
+
+        # Destroy the figure after embedding to avoid memory leaks
+        plt.close(fig)
+
+    def _on_hist_enter(self, event):
+        # Cancel any scheduled close when mouse enters the histogram window
+        if self._hist_close_job is not None:
+            self.after_cancel(self._hist_close_job)
+            self._hist_close_job = None
+
+    def _on_hist_leave(self, event):
+        # Schedule closing the histogram window after a short delay
+        CLOSE_CHECK_DELAY_MS = 1000
+        if self._hist_close_job is not None:
+            self.after_cancel(self._hist_close_job)
+        self._hist_close_job = self.after(CLOSE_CHECK_DELAY_MS, self.close_hist_window)
+
+    def _on_row_hover(self, metric, tab):
+        """
+        Handle mouse hover over a table row.
+        Schedule showing histogram after a delay.
+        """
+        # Constants for timing
+        HISTOGRAM_DISPLAY_DELAY_MS = 2000
+
+        # Cancel any scheduled close
+        if self._hist_close_job is not None:
+            self.after_cancel(self._hist_close_job)
+            self._hist_close_job = None
+
+        # Cancel any previous scheduled show
+        if self._hist_show_job is not None:
+            self.after_cancel(self._hist_show_job)
+
+        # Schedule the new show action after delay
+        self._hist_show_job = self.after(HISTOGRAM_DISPLAY_DELAY_MS, lambda: self.show_hist_window(metric, tab))
+
+    def _on_row_leave_row(self, row_idx, table):
+        """
+        Handle mouse leaving a table row.
+        Close histogram window after delay if mouse isn't over row or histogram.
+        """
+        CLOSE_CHECK_DELAY_MS = 1000
+
+        # Cancel any scheduled show
+        if self._hist_show_job is not None:
+            self.after_cancel(self._hist_show_job)
+            self._hist_show_job = None
+
+        def is_mouse_over_row_or_hist():
+            """Check if mouse is still over the row or histogram window"""
+            x, y = self.winfo_pointerxy()
+            widget = self.winfo_containing(x, y)
+
+            # Check if mouse is over any cell in this row
+            for col_idx in range(table.columns):
+                if widget == table.frame[(row_idx, col_idx)]:
+                    return True
+
+            # Check if mouse is over the histogram window
+            if self.hist_window is not None and self.hist_window.winfo_exists():
+                if widget is not None:
+                    parent = widget
+                    while parent is not None:
+                        if parent == self.hist_window:
+                            return True
+                        parent = parent.master
+            return False
+
+        def check_and_close_if_needed():
+            """Close histogram if mouse is not over row or histogram"""
+            if not is_mouse_over_row_or_hist():
+                self.close_hist_window()
+
+        # Cancel any previous close check
+        if self._hist_close_job is not None:
+            self.after_cancel(self._hist_close_job)
+
+        # Schedule new close check
+        self._hist_close_job = self.after(CLOSE_CHECK_DELAY_MS, check_and_close_if_needed)
 
 
 class HeatMapWindow(customtkinter.CTkToplevel):

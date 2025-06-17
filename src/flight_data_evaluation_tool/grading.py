@@ -124,8 +124,12 @@ def tier_data(test_row, phase):
 
     tiered_data = {"Excellent": [], "Good": [], "Normal": [], "Poor": [], "Very Poor": []}
 
+    metrics = {}
+
     for column in database:
         dist_type, metric, transformer, zero_inflated = tier_metric(database[column])
+
+        metrics[column] = metric
 
         counter[dist_type] += 1
 
@@ -202,7 +206,7 @@ def tier_data(test_row, phase):
 
     # print(counter)
 
-    return tiered_data
+    return tiered_data, metrics
 
 
 def calculate_phase_weights(data):
