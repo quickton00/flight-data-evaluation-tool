@@ -11,6 +11,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from contextlib import contextmanager
 from functools import partial
+import numpy as np
+from scipy.stats import gaussian_kde
 
 # Assure functionality of relative imports in development environment and standalone execution
 try:
@@ -216,13 +218,17 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         }
         phase_relevance_factors = {"Alignment Phase": 0.2, "Approach Phase": 0.3, "Final Approach Phase": 0.5}
 
+        total_tiered_data = {}
+
         for tab in phases_tabview.tabs:
-            tiered_data, self.metrics[tab] = tier_data(evaluated_results, tab)
+            total_tiered_data[tab], self.metrics[tab] = tier_data(evaluated_results, tab)
 
             for evaluation_tier in phases_tabview.evaluation_tiers:
-                if tiered_data[evaluation_tier]:
+                if total_tiered_data[tab][evaluation_tier]:
                     panel = phases_tabview.panels[tab][evaluation_tier]
-                    panel.header_button.configure(text=f"{panel.title} ({len(tiered_data[evaluation_tier])})")
+                    panel.header_button.configure(
+                        text=f"{panel.title} ({len(total_tiered_data[tab][evaluation_tier])})"
+                    )
 
                     if tab != "Total Flight":
                         column_keys = ["Value", "Mean", "Std", "Type", "Weight", "Percentile"]
@@ -230,7 +236,8 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                         column_keys = ["Value", "Mean", "Std", "Type", "Percentile"]
 
                     values = [["Name"] + column_keys]
-                    for item in tiered_data[evaluation_tier]:
+                    for item in total_tiered_data[tab][evaluation_tier]:
+
                         key = list(item.keys())[0]
                         values.append(
                             [key]
@@ -263,6 +270,15 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 else:
                     panel = phases_tabview.panels[tab][evaluation_tier]
                     panel.header_button.configure(text=f"{panel.title} (0)")
+
+        temp_tired_data = total_tiered_data
+        self.dataobjs = {}
+
+        for tab in phases_tabview.tabs:
+            self.dataobjs[tab] = {}
+            for tier in temp_tired_data[tab]:
+                for item in temp_tired_data[tab][tier]:
+                    self.dataobjs[tab].update(item)
 
         final_grade = 0
         for phase, sub_grade in sub_grades.items():
@@ -305,33 +321,15 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
         data = self.metrics[tab][metric]
 
-        # Create the histogram window
-        self.hist_window = customtkinter.CTkToplevel(self)
-        self.hist_window.title(f"Distribution for {metric} ({tab})")
-        self.hist_window.geometry("400x300+{}+{}".format(self.winfo_pointerx(), self.winfo_pointery()))
-
-        # Bring the window to the front and focus it
-        self.hist_window.lift()
-        self.hist_window.focus_force()
-        self.hist_window.after(10, self.hist_window.focus_force)
-
-        fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
-        ax.hist(data, bins=20, color="#8A2BE2", edgecolor="black")
-        ax.set_title(f"{metric} Distribution")
-        ax.set_xlabel("Value")
-        ax.set_ylabel("Frequency")
-        fig.tight_layout()
-
-        canvas = FigureCanvasTkAgg(fig, master=self.hist_window)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
-
-        # Bind enter/leave events to the histogram window
-        self.hist_window.bind("<Enter>", self._on_hist_enter)
-        self.hist_window.bind("<Leave>", self._on_hist_leave)
-
-        # Destroy the figure after embedding to avoid memory leaks
-        plt.close(fig)
+        borders = self.dataobjs[tab][metric]["Borders"]
+        self.hist_window = HistWindow(
+            master=self,
+            data=data,
+            metric=metric,
+            tab=tab,
+            borders=borders,
+            on_close_callback=lambda: setattr(self, "hist_window", None),
+        )
 
     def _on_hist_enter(self, event):
         # Cancel any scheduled close when mouse enters the histogram window
@@ -341,7 +339,7 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
     def _on_hist_leave(self, event):
         # Schedule closing the histogram window after a short delay
-        CLOSE_CHECK_DELAY_MS = 1000
+        CLOSE_CHECK_DELAY_MS = 100
         if self._hist_close_job is not None:
             self.after_cancel(self._hist_close_job)
         self._hist_close_job = self.after(CLOSE_CHECK_DELAY_MS, self.close_hist_window)
@@ -371,7 +369,7 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         Handle mouse leaving a table row.
         Close histogram window after delay if mouse isn't over row or histogram.
         """
-        CLOSE_CHECK_DELAY_MS = 1000
+        CLOSE_CHECK_DELAY_MS = 100
 
         # Cancel any scheduled show
         if self._hist_show_job is not None:
@@ -409,6 +407,80 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
         # Schedule new close check
         self._hist_close_job = self.after(CLOSE_CHECK_DELAY_MS, check_and_close_if_needed)
+
+
+class HistWindow(customtkinter.CTkToplevel):
+    def __init__(self, master, data, metric, tab, borders=None, on_close_callback=None):
+        super().__init__(master)
+        self.master = master
+        self.on_close_callback = on_close_callback
+
+        self.title(f"Distribution for {metric}")
+        self.iconbitmap(default=icon_path)
+
+        # Offset to avoid mouse being over the title bar
+        OFFSET_X = 10
+        OFFSET_Y = 20
+        mouse_x = master.winfo_pointerx()
+        mouse_y = master.winfo_pointery()
+        self.geometry(f"400x300+{mouse_x + OFFSET_X}+{mouse_y + OFFSET_Y}")
+
+        # Bring the window to the front and focus it
+        self.lift()
+        self.focus_force()
+        self.after(10, self.focus_force)
+
+        fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
+        # Plot histogram
+        ax.hist(data, bins=20, color="#8A2BE2", edgecolor="black", density=True, alpha=0.6, label="Histogram")
+
+        # Plot PDF (KDE)
+        if len(data) > 1:
+            kde = gaussian_kde(data)
+            x_min, x_max = min(data), max(data)
+            x_vals = np.linspace(x_min, x_max, 200)
+            ax.plot(x_vals, kde(x_vals), color="red", lw=2, label="PDF (KDE)")
+
+        # Draw vertical lines for each border
+        if borders:
+            for border in borders:
+                ax.axvline(border, color="orange", linestyle="--", linewidth=2)
+
+        # Add a vertical line for the current valueax.set_title(f"{metric} Distribution")
+        if "trans_Value" in self.master.dataobjs[tab][metric]:
+            current_value = self.master.dataobjs[tab][metric]["trans_Value"]
+        else:
+            current_value = self.master.dataobjs[tab][metric]["Value"]
+        ax.axvline(current_value, color="red", linestyle="-", lw=2, label="Current Value")
+
+        ax.set_xlabel("Value")
+        ax.set_ylabel("Density")
+        ax.legend()
+        fig.tight_layout()
+
+        canvas = FigureCanvasTkAgg(fig, master=self)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        # Bind enter/leave events to the histogram window
+        self.bind("<Enter>", self._on_hist_enter)
+        self.bind("<Leave>", self._on_hist_leave)
+
+        # Destroy the figure after embedding to avoid memory leaks
+        plt.close(fig)
+
+    def _on_hist_enter(self, event):
+        if hasattr(self.master, "_on_hist_enter"):
+            self.master._on_hist_enter(event)
+
+    def _on_hist_leave(self, event):
+        if hasattr(self.master, "_on_hist_leave"):
+            self.master._on_hist_leave(event)
+
+    def destroy(self):
+        if self.on_close_callback:
+            self.on_close_callback()
+        super().destroy()
 
 
 class HeatMapWindow(customtkinter.CTkToplevel):

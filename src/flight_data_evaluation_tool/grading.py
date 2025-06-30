@@ -136,6 +136,8 @@ def tier_data(test_row, phase):
         if dist_type == "normal" and not zero_inflated:
             current_value = test_row[column]
 
+            tier_borders = [metric.mean() + i * metric.std() for i in [-2, -1, 1, 2]]
+
             data_obj = {
                 column: {
                     "Value": current_value,
@@ -144,24 +146,35 @@ def tier_data(test_row, phase):
                     "Type": dist_type,
                     "Weight": weights[column].iloc[0],
                     "Percentile": "",
+                    "Borders": tier_borders,
                 }
             }
+
+            if column == "Duration_Align":
+                print(data_obj)
+                print(current_value)
 
             if current_value == 0:
                 tiered_data["Excellent"].append(data_obj)
                 continue
 
             if transformer:
-                current_value = transformer.transform(np.array(test_row[column]).reshape(-1, 1))
+                current_value = transformer.transform(np.array(test_row[column]).reshape(-1, 1))[0][0]
                 metric = transformer.transform(metric.values.reshape(-1, 1)).flatten()
+                tier_borders = [metric.mean() + i * metric.std() for i in [-2, -1, 1, 2]]
+                data_obj[column]["trans_Value"] = current_value
+                data_obj[column]["Borders"] = tier_borders
+                metrics[column] = metric
 
-            if current_value <= metric.mean() - 2 * metric.std():
+            # TODO: Shouldnt be the transformed metric be displayed when we have a transformer?
+
+            if current_value <= tier_borders[0]:
                 tiered_data["Excellent"].append(data_obj)
-            elif current_value <= metric.mean() - metric.std():
+            elif current_value <= tier_borders[1]:
                 tiered_data["Good"].append(data_obj)
-            elif current_value <= metric.mean() + metric.std():
+            elif current_value <= tier_borders[2]:
                 tiered_data["Normal"].append(data_obj)
-            elif current_value <= metric.mean() + 2 * metric.std():
+            elif current_value <= tier_borders[3]:
                 tiered_data["Poor"].append(data_obj)
             else:
                 tiered_data["Very Poor"].append(data_obj)
@@ -179,6 +192,13 @@ def tier_data(test_row, phase):
             except IndexError:
                 percentile = 0.0
 
+            tier_borders = [
+                sorted_metric.nsmallest(round(len(sorted_metric) * 0.023 + 0.5)).values[-1],
+                sorted_metric.nsmallest(round(len(sorted_metric) * 0.159 + 0.5)).values[-1],
+                sorted_metric.nsmallest(round(len(sorted_metric) * 0.841 + 0.5)).values[-1],
+                sorted_metric.nsmallest(round(len(sorted_metric) * 0.977 + 0.5)).values[-1],
+            ]
+
             data_obj = {
                 column: {
                     "Value": current_value,
@@ -187,16 +207,17 @@ def tier_data(test_row, phase):
                     "Type": dist_type,
                     "Weight": weights[column].iloc[0],
                     "Percentile": percentile,
+                    "Borders": tier_borders,
                 }
             }
 
-            if current_value <= metric.nsmallest(round(len(metric) * 0.023 + 0.5)).values[-1]:
+            if current_value <= tier_borders[0]:
                 tiered_data["Excellent"].append(data_obj)
-            elif current_value <= metric.nsmallest(round(len(metric) * 0.159 + 0.5)).values[-1]:
+            elif current_value <= tier_borders[1]:
                 tiered_data["Good"].append(data_obj)
-            elif current_value <= metric.nsmallest(round(len(metric) * 0.841 + 0.5)).values[-1]:
+            elif current_value <= tier_borders[2]:
                 tiered_data["Normal"].append(data_obj)
-            elif current_value <= metric.nsmallest(round(len(metric) * 0.977 + 0.5)).values[-1]:
+            elif current_value <= tier_borders[3]:
                 tiered_data["Poor"].append(data_obj)
             else:
                 tiered_data["Very Poor"].append(data_obj)
