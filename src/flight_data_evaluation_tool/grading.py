@@ -150,10 +150,6 @@ def tier_data(test_row, phase):
                 }
             }
 
-            if column == "Duration_Align":
-                print(data_obj)
-                print(current_value)
-
             if current_value == 0:
                 tiered_data["Excellent"].append(data_obj)
                 continue
@@ -166,7 +162,7 @@ def tier_data(test_row, phase):
                 data_obj[column]["Borders"] = tier_borders
                 metrics[column] = metric
 
-            # TODO: Shouldnt be the transformed metric be displayed when we have a transformer?
+            # TODO: should not be the transformed metric be displayed when we have a transformer?
 
             if current_value <= tier_borders[0]:
                 tiered_data["Excellent"].append(data_obj)

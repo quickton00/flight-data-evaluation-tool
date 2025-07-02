@@ -210,11 +210,11 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
         sub_grades = {"Alignment Phase": 0, "Approach Phase": 0, "Final Approach Phase": 0}
         tier_factors = {
-            "Excellent": 1,
-            "Good": 2,
-            "Normal": 3,
-            "Poor": 4,
-            "Very Poor": 5,
+            "Excellent": 100,
+            "Good": 90,
+            "Normal": 80,
+            "Poor": 70,
+            "Very Poor": 60,
         }
         phase_relevance_factors = {"Alignment Phase": 0.2, "Approach Phase": 0.3, "Final Approach Phase": 0.5}
 
@@ -418,6 +418,11 @@ class HistWindow(customtkinter.CTkToplevel):
         self.title(f"Distribution for {metric}")
         self.iconbitmap(default=icon_path)
 
+        # Because CTkToplevel currently is bugged on windows and doesn't check if a user specified icon is set we need
+        # to set the icon again after 200ms
+        if sys.platform.startswith("win"):
+            self.after(200, lambda: self.iconbitmap(icon_path))
+
         # Offset to avoid mouse being over the title bar
         OFFSET_X = 10
         OFFSET_Y = 20
@@ -434,12 +439,12 @@ class HistWindow(customtkinter.CTkToplevel):
         # Plot histogram
         ax.hist(data, bins=20, color="#8A2BE2", edgecolor="black", density=True, alpha=0.6, label="Histogram")
 
-        # Plot PDF (KDE)
+        # Plot PDF
         if len(data) > 1:
             kde = gaussian_kde(data)
             x_min, x_max = min(data), max(data)
             x_vals = np.linspace(x_min, x_max, 200)
-            ax.plot(x_vals, kde(x_vals), color="red", lw=2, label="PDF (KDE)")
+            ax.plot(x_vals, kde(x_vals), color="red", lw=2, label="PDF")
 
         # Draw vertical lines for each border
         if borders:
@@ -701,10 +706,10 @@ class PlotWindow(customtkinter.CTkToplevel):
 
         # Add various buttons
         if x_axis_type == "SimTime":
-            add_to_databse_button = customtkinter.CTkButton(
+            add_to_database_button = customtkinter.CTkButton(
                 master=self, text="Add flight to database", command=self.add_to_database_button_event
             )
-            add_to_databse_button.grid(row=5, column=2, padx=15, pady=15, sticky="s")
+            add_to_database_button.grid(row=5, column=2, padx=15, pady=15, sticky="s")
         else:
             self.switch_var = customtkinter.StringVar(value="on")
             phases_switch = customtkinter.CTkSwitch(
