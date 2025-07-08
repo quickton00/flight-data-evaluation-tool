@@ -210,11 +210,11 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
         sub_grades = {"Alignment Phase": 0, "Approach Phase": 0, "Final Approach Phase": 0}
         tier_factors = {
-            "Excellent": 100,
-            "Good": 90,
-            "Normal": 80,
-            "Poor": 70,
-            "Very Poor": 60,
+            "Excellent": 1,
+            "Good": 2,
+            "Normal": 3,
+            "Poor": 4,
+            "Very Poor": 5,
         }
         phase_relevance_factors = {"Alignment Phase": 0.2, "Approach Phase": 0.3, "Final Approach Phase": 0.5}
 
@@ -439,13 +439,6 @@ class HistWindow(customtkinter.CTkToplevel):
         # Plot histogram
         ax.hist(data, bins=20, color="#8A2BE2", edgecolor="black", density=True, alpha=0.6, label="Histogram")
 
-        # Plot PDF
-        if len(data) > 1:
-            kde = gaussian_kde(data)
-            x_min, x_max = min(data), max(data)
-            x_vals = np.linspace(x_min, x_max, 200)
-            ax.plot(x_vals, kde(x_vals), color="red", lw=2, label="PDF")
-
         # Draw vertical lines for each border
         if borders:
             for border in borders:
@@ -454,11 +447,20 @@ class HistWindow(customtkinter.CTkToplevel):
         # Add a vertical line for the current valueax.set_title(f"{metric} Distribution")
         if "trans_Value" in self.master.dataobjs[tab][metric]:
             current_value = self.master.dataobjs[tab][metric]["trans_Value"]
+            transformed_label = " (Transformed)"
         else:
             current_value = self.master.dataobjs[tab][metric]["Value"]
-        ax.axvline(current_value, color="red", linestyle="-", lw=2, label="Current Value")
+            transformed_label = ""
+        ax.axvline(current_value, color="red", linestyle="-", lw=2, label=f"Current Value{transformed_label}")
 
-        ax.set_xlabel("Value")
+        # Plot PDF
+        if len(data) > 1:
+            kde = gaussian_kde(data)
+            x_min, x_max = min(data), max(data)
+            x_vals = np.linspace(x_min, x_max, 200)
+            ax.plot(x_vals, kde(x_vals), color="red", lw=2, label=f"Probability Density Function{transformed_label}")
+
+        ax.set_xlabel(f"Flight Metric Value{transformed_label}")
         ax.set_ylabel("Density")
         ax.legend()
         fig.tight_layout()
