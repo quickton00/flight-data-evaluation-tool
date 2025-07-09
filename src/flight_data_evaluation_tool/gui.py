@@ -410,7 +410,7 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
 
 class HistWindow(customtkinter.CTkToplevel):
-    def __init__(self, master, data, metric, tab, borders=None, on_close_callback=None):
+    def __init__(self, master, data, metric, tab, borders, on_close_callback=None):
         super().__init__(master)
         self.master = master
         self.on_close_callback = on_close_callback
@@ -436,30 +436,59 @@ class HistWindow(customtkinter.CTkToplevel):
         self.after(10, self.focus_force)
 
         fig, ax = plt.subplots(figsize=(4, 3), dpi=100)
+
         # Plot histogram
-        ax.hist(data, bins=20, color="#8A2BE2", edgecolor="black", density=True, alpha=0.6, label="Histogram")
+        # ax.hist(data, bins=20, color="#8A2BE2", edgecolor="black", density=True, alpha=0.6, label="Histogram")
 
         # Draw vertical lines for each border
-        if borders:
-            for border in borders:
-                ax.axvline(border, color="orange", linestyle="--", linewidth=2)
+        for border in borders:
+            ax.axvline(border, color="black", linestyle="--", lw=1)
 
-        # Add a vertical line for the current valueax.set_title(f"{metric} Distribution")
+        # Add a vertical line for the current value
         if "trans_Value" in self.master.dataobjs[tab][metric]:
             current_value = self.master.dataobjs[tab][metric]["trans_Value"]
             transformed_label = " (Transformed)"
         else:
             current_value = self.master.dataobjs[tab][metric]["Value"]
             transformed_label = ""
-        ax.axvline(current_value, color="red", linestyle="-", lw=2, label=f"Current Value{transformed_label}")
+        ax.axvline(current_value, color="#8A2BE2", linestyle="-", lw=2, label=f"Value{transformed_label}")
 
         # Plot PDF
         if len(data) > 1:
             kde = gaussian_kde(data)
-            x_min, x_max = min(data), max(data)
+            if min(data) < borders[0]:
+                x_min = min(data)
+            else:
+                x_min = borders[0]
+            x_max = max(data)
             x_vals = np.linspace(x_min, x_max, 200)
-            ax.plot(x_vals, kde(x_vals), color="red", lw=2, label=f"Probability Density Function{transformed_label}")
+            ax.plot(x_vals, kde(x_vals), color="black", lw=1, label=f"PDF{transformed_label}")
 
+            # Define tier colors, altered for white background
+            tier_colors = {
+                "Excellent": "#015220",
+                "Good": "#1AA260",
+                "Normal": "#f38200",
+                "Poor": "#E55451",
+                "Very Poor": "#C40717",
+            }
+
+            # Color the area under the curve between borders
+            # Sort borders and add min and max x values to ensure full coverage
+            all_borders = [x_min] + borders + [x_max]
+
+            # Get tier colors in a list for easier indexing
+            colors = list(tier_colors.values())
+
+            # Fill each section between borders with the appropriate tier color
+            for i in range(len(all_borders) - 1):
+                section_min = all_borders[i]
+                section_max = all_borders[i + 1]
+                section_x = np.linspace(section_min, section_max, 100)
+                section_y = kde(section_x)
+                ax.fill_between(section_x, section_y, alpha=0.3, color=colors[i])
+
+        fig.suptitle("Probability Density Function(PDF) with tiers")
         ax.set_xlabel(f"Flight Metric Value{transformed_label}")
         ax.set_ylabel("Density")
         ax.legend()
@@ -530,7 +559,7 @@ class HeatMapWindow(customtkinter.CTkToplevel):
         pilot_label = customtkinter.CTkLabel(
             master=self,
             text=f"Pilot ID: {self.master.results['Pilot'][0]}; Scenario: {self.master.results['Scenario'][0]}",
-            fg_color="#8A2BE2",  # Add purple background
+            fg_color="#8A2BE2",
             text_color="white",
             corner_radius=8,
             anchor="w",

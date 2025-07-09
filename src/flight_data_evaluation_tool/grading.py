@@ -137,6 +137,7 @@ def tier_data(test_row, phase):
             current_value = test_row[column]
 
             tier_borders = [metric.mean() + i * metric.std() for i in [-2, -1, 1, 2]]
+            tier_borders = [0 if border < 0 else border for border in tier_borders]
 
             data_obj = {
                 column: {
@@ -161,8 +162,6 @@ def tier_data(test_row, phase):
                 data_obj[column]["trans_Value"] = current_value
                 data_obj[column]["Borders"] = tier_borders
                 metrics[column] = metric
-
-            # TODO: should not be the transformed metric be displayed when we have a transformer?
 
             if current_value <= tier_borders[0]:
                 tiered_data["Excellent"].append(data_obj)
