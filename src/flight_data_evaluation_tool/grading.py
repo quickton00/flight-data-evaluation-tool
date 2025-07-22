@@ -6,6 +6,7 @@ from scipy.stats import chi2
 from scipy.stats import shapiro, normaltest, anderson
 from sklearn.preprocessing import PowerTransformer, QuantileTransformer
 from crispyn import weighting_methods as mcda_weights
+from helper.thesis import compare_weighting_methods_and_rank
 
 
 def is_normal(data, alpha=0.05):
@@ -222,6 +223,15 @@ def tier_data(test_row, phase):
 
     # print(counter)
 
+    COMPARISON = False
+
+    if phase == "Alignment Phase" and COMPARISON:
+        # Export weighting comparison for Alignment Phase
+        # Prepare types and alternative names (customize as needed)
+        types = np.ones(len(database.columns), dtype=int)  # Create array of 1s
+
+        compare_weighting_methods_and_rank(database, types, filename="alignment_phase_weighting_comparison.xlsx")
+
     return tiered_data, metrics
 
 
@@ -232,7 +242,7 @@ def calculate_phase_weights(data):
     # Calculate weights only for variable columns
     if len(variable_cols) > 0:
         variable_data = data[variable_cols].to_numpy()
-        variable_weights = mcda_weights.critic_weighting(variable_data)
+        variable_weights = mcda_weights.gini_weighting(variable_data)
 
     # Build full weight vector (zero for constant columns)
     weights = pd.Series(0.0, index=data.columns)
