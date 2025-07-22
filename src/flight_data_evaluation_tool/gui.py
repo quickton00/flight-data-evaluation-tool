@@ -4,6 +4,7 @@ from tkinter import filedialog, messagebox
 import hashlib
 import os
 import sys
+import json
 import matplotlib.style
 import matplotlib.pyplot as plt
 from matplotlib.transforms import Bbox
@@ -224,52 +225,71 @@ class EvaluationWindow(customtkinter.CTkToplevel):
             total_tiered_data[tab], self.metrics[tab] = tier_data(evaluated_results, tab)
 
             for evaluation_tier in phases_tabview.evaluation_tiers:
-                if total_tiered_data[tab][evaluation_tier]:
-                    panel = phases_tabview.panels[tab][evaluation_tier]
-                    panel.header_button.configure(
-                        text=f"{panel.title} ({len(total_tiered_data[tab][evaluation_tier])})"
-                    )
-
-                    if tab != "Total Flight":
-                        column_keys = ["Value", "Mean", "Std", "Type", "Weight", "Percentile"]
-                    else:
-                        column_keys = ["Value", "Mean", "Std", "Type", "Percentile"]
-
-                    values = [["Name"] + column_keys]
-                    for item in total_tiered_data[tab][evaluation_tier]:
-
-                        key = list(item.keys())[0]
-                        values.append(
-                            [key]
-                            + [
-                                round(item[key][col], 4) if isinstance(item[key][col], float) else item[key][col]
-                                for col in column_keys
-                            ]
-                        )
-
-                        if "Weight" in column_keys:
-                            sub_grades[tab] += item[key]["Weight"] * tier_factors[evaluation_tier]
-
-                    table = CTkTable(panel._content_frame, row=len(values), column=len(values[0]), values=values)
-                    table.pack(fill="both", padx=10, pady=2)
-
-                    # Add hover event for each row except header
-                    for row_idx in range(1, len(values)):
-                        row_key = values[row_idx][0]
-                        widget_row = [table.frame[(row_idx, col_idx)] for col_idx in range(len(values[0]))]
-                        # Bind <Enter> and <Leave> to all widgets in the row
-                        for cell_widget in widget_row:
-                            cell_widget.bind(
-                                "<Enter>", lambda e, metric=row_key, tab=tab: self._on_row_hover(metric, tab)
-                            )
-                            cell_widget.bind(
-                                "<Leave>",
-                                lambda e, row_idx=row_idx, table=table: self._on_row_leave_row(row_idx, table),
-                            )
-
-                else:
+                if not total_tiered_data[tab][evaluation_tier]:
                     panel = phases_tabview.panels[tab][evaluation_tier]
                     panel.header_button.configure(text=f"{panel.title} (0)")
+                    continue
+
+                panel = phases_tabview.panels[tab][evaluation_tier]
+                panel.header_button.configure(text=f"{panel.title} ({len(total_tiered_data[tab][evaluation_tier])})")
+
+                if tab != "Total Flight":
+                    # column_keys = ["Value", "Mean", "Std", "Type", "Weight", "Percentile"]
+                    column_keys = ["Value", "Unit", "Description"]  # productive table version
+                else:
+                    # column_keys = ["Value", "Mean", "Std", "Type", "Percentile"]
+                    column_keys = ["Value", "Unit", "Description"]  # productive table version
+
+                mapping_file = r"src\flight_data_evaluation_tool\parameter_mapping.json"
+
+                if getattr(sys, "frozen", False):  # Check if running in a PyInstaller bundle
+                    mapping_file = sys._MEIPASS  # type: ignore
+                    mapping_file = os.path.join(mapping_file, "parameter_mapping.json")
+                with open(mapping_file, "r") as f:
+                    parameter_mapping = json.load(f)
+
+                values = [["Name"] + column_keys]
+                for item in total_tiered_data[tab][evaluation_tier]:
+                    key = list(item.keys())[0]
+
+                    single_row_values = []
+                    for col in column_keys:
+                        if col == "Description" or col == "Unit":
+                            if type(parameter_mapping[key]) is dict and col in parameter_mapping[key]:
+                                single_row_values.append(parameter_mapping[key][col])
+                            else:
+                                single_row_values.append("")
+
+                            continue
+
+                        if isinstance(item[key][col], float):
+                            single_row_values.append(round(item[key][col], 4))
+                        else:
+                            single_row_values.append(item[key][col])
+
+                    values.append([key] + single_row_values)
+
+                    if tab != "Total Flight":
+                        sub_grades[tab] += item[key]["Weight"] * tier_factors[evaluation_tier]
+
+                table = CTkTable(panel._content_frame, row=len(values), column=len(values[0]), values=values)
+                table.pack(fill="both", padx=10, pady=2)
+
+                # Add hover event for each row except header
+                for row_idx in range(1, len(values)):
+                    row_key = values[row_idx][0]
+
+                    if type(parameter_mapping[row_key]) is dict and "alt_name" in parameter_mapping[row_key]:
+                        table.insert(row_idx, 0, parameter_mapping[row_key]["alt_name"])
+
+                    widget_row = [table.frame[(row_idx, col_idx)] for col_idx in range(len(values[0]))]
+                    # Bind <Enter> and <Leave> to all widgets in the row
+                    for cell_widget in widget_row:
+                        cell_widget.bind("<Enter>", lambda e, metric=row_key, tab=tab: self._on_row_hover(metric, tab))
+                        cell_widget.bind(
+                            "<Leave>",
+                            lambda e, row_idx=row_idx, table=table: self._on_row_leave_row(row_idx, table),
+                        )
 
         temp_tired_data = total_tiered_data
         self.dataobjs = {}
