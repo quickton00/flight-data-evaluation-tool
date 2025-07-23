@@ -4,77 +4,373 @@
     "Date": null,
     "Scenario": null,
     "Manually modified Phases": null,
-    "Start_Align": "min",
-    "Duration_Align": "min",
-    "Start_Appr": "min",
-    "Duration_Appr": "min",
-    "Start_FA": "min",
-    "Duration_FA": "min",
-    "Time_Dock": "min",
-    "Duration_Total": "min",
-    "OutOfCone_Align": "min",
-    "OutOfCone_Appr": "min",
-    "OutOfCone_FA": "min",
-    "OutOfCone_Total": "min",
-    "AboveClosingVel_Align": "min",
-    "AboveClosingVel_Appr": "min",
-    "AboveClosingVel_FA": "min",
-    "AboveClosingVel_Total": "min",
-    "Fuel_Align": "min",
-    "Fuel_Appr": "min",
-    "Fuel_FA": "min",
-    "Fuel_Total": "min",
-    "LatOffsetAtStart_Align": "min",
-    "LatOffsetAtStart_Appr": "min",
-    "LatOffsetAtStart_FA": "min",
-    "LatOffsetAt_Dock": "min",
-    "NoVisTime_Align": "min",
-    "NoVisTime_Appr": "min",
-    "NoVisTime_FA": "min",
-    "NoVisTime_Total": "min",
-    "THCPSD_Align": "min",
-    "THCErr_Align": "min",
-    "RHCPSD_Align": "min",
-    "RHCErr_Align": "min",
-    "THCPSD_Appr": "min",
-    "THCErr_Appr": "min",
-    "RHCPSD_Appr": "min",
-    "RHCErr_Appr": "min",
-    "THCPSD_FA": "min",
-    "THCErr_FA": "min",
-    "RHCPSD_FA": "min",
-    "RHCErr_FA": "min",
-    "THCPSD_Total": "min",
-    "THCErr_Total": "min",
-    "RHCPSD_Total": "min",
-    "RHCErr_Total": "min",
-    "LatOffAvg_Align": "min",
-    "LatOffAvg_Appr": "min",
-    "LatOffAvg_FA": "min",
-    "LatOffAvg_Total": "min",
-    "RollRms_Align": "min",
-    "RollRms_Appr": "min",
-    "RollRms_FA": "min",
-    "RollRms_Total": "min",
-    "YawRms_Align": "min",
-    "YawRms_Appr": "min",
-    "YawRms_FA": "min",
-    "YawRms_Total": "min",
-    "PitchRms_Align": "min",
-    "PitchRms_Appr": "min",
-    "PitchRms_FA": "min",
-    "PitchRms_Total": "min",
-    "Aggressiveness_Align": "min",
-    "Aggressiveness_Appr": "min",
-    "Aggressiveness_FA": "min",
-    "Aggressiveness_Total": "min",
-    "DutyCycle_Align": "min",
-    "DutyCycle_Appr": "min",
-    "DutyCycle_FA": "min",
-    "DutyCycle_Total": "min",
-    "Workload_Align": "min",
-    "Workload_Appr": "min",
-    "Workload_FA": "min",
-    "Workload_Total": "min"
+    "Start_Align": {
+      "alt_name": "Start Time",
+      "Unit": "seconds",
+      "Description": "Start time of the Alignment phase."
+    },
+    "Duration_Align": {
+      "alt_name": "Duration",
+      "Unit": "seconds",
+      "Description": "Duration of the Alignment phase."
+    },
+    "Start_Appr": {
+      "alt_name": "Start Time",
+      "Unit": "seconds",
+      "Description": "Start time of the Approach phase."
+    },
+    "Duration_Appr": {
+      "alt_name": "Duration",
+      "Unit": "seconds",
+      "Description": "Duration of the Approach phase"
+    },
+    "Start_FA": {
+      "alt_name": "Start Time",
+      "Unit": "seconds",
+      "Description": "Start time of the Final Approach phase."
+    },
+    "Duration_FA": {
+      "alt_name": "Duration Final",
+      "Unit": "seconds",
+      "Description": "Duration of the Final Approach phase."
+    },
+    "Time_Dock": {
+      "alt_name": "Time of Docking Contact",
+      "Unit": "seconds",
+      "Description": "Time where the vessel made contact with the docking port."
+    },
+    "Duration_Total": {
+      "alt_name": "Duration",
+      "Unit": "seconds",
+      "Description": "Duration of the Total flight from scenario start to docking contact."
+    },
+    "OutOfCone_Align": {
+      "alt_name": "Time outside Approach Corridor",
+      "Unit": "seconds",
+      "Description": "Time spent outside the Approach Corridor during the Alignment phase."
+    },
+    "OutOfCone_Appr": {
+      "alt_name": "Time outside Approach Corridor",
+      "Unit": "seconds",
+      "Description": "Time spent outside the Approach Corridor during the Approach phase."
+    },
+    "OutOfCone_FA": {
+      "alt_name": "Time outside Approach Corridor",
+      "Unit": "seconds",
+      "Description": "Time spent outside the Approach Corridor during the Final Approach phase."
+    },
+    "OutOfCone_Total": {
+      "alt_name": "Time outside Approach Corridor",
+      "Unit": "seconds",
+      "Description": "Overall time spent outside the Approach Corridor during the whole flight."
+    },
+    "AboveClosingVel_Align": {
+      "alt_name": "Time above max. Approach Velocity",
+      "Unit": "seconds",
+      "Description": "Time spent above the maximum Approach Velocity during the Alignment phase."
+    },
+    "AboveClosingVel_Appr": {
+      "alt_name": "Time above max. Approach Velocity",
+      "Unit": "seconds",
+      "Description": "Time spent above the maximum Approach Velocity during the Approach phase."
+    },
+    "AboveClosingVel_FA": {
+      "alt_name": "Time above max. Approach Velocity",
+      "Unit": "seconds",
+      "Description": "Time spent above the maximum Approach Velocity during the Final Approach phase."
+    },
+    "AboveClosingVel_Total": {
+      "alt_name": "Time above max. Approach Velocity",
+      "Unit": "seconds",
+      "Description": "Overall time spent above the maximum Approach Velocity during the whole flight."
+    },
+    "Fuel_Align": {
+      "alt_name": "Fuel Consumption",
+      "Unit": "kilogram",
+      "Description": "Amount of fuel consumed during the Alignment phase."
+    },
+    "Fuel_Appr": {
+      "alt_name": "Fuel Consumption",
+      "Unit": "kilogram",
+      "Description": "Amount of fuel consumed during the Approach phase."
+    },
+    "Fuel_FA": {
+      "alt_name": "Fuel Consumption",
+      "Unit": "kilogram",
+      "Description": "Amount of fuel consumed during the Final Approach phase."
+    },
+    "Fuel_Total": {
+      "alt_name": "Total Fuel Consumption",
+      "Unit": "kilogram",
+      "Description": "Total amount of fuel consumed during the entire flight."
+    },
+    "LatOffsetAtStart_Align": {
+      "alt_name": "Lateral Offset at Start",
+      "Unit": "meters",
+      "Description": "Lateral offset from the ideal approach path at the beginning of the Alignment phase."
+    },
+    "LatOffsetAtStart_Appr": {
+      "alt_name": "Lateral Offset at Start",
+      "Unit": "meters",
+      "Description": "Lateral offset from the ideal approach path at the beginning of the Approach phase."
+    },
+    "LatOffsetAtStart_FA": {
+      "alt_name": "Lateral Offset at Start",
+      "Unit": "meters",
+      "Description": "Lateral offset from the ideal approach path at the beginning of the Final Approach phase."
+    },
+    "LatOffsetAt_Dock": {
+      "alt_name": "Lateral Offset at Docking",
+      "Unit": "meters",
+      "Description": "Lateral offset from the ideal approach path when making docking contact."
+    },
+    "NoVisTime_Align": {
+      "alt_name": "No Visibility Time",
+      "Unit": "seconds",
+      "Description": "Time without visual sight on the docking target during the Alignment phase."
+    },
+    "NoVisTime_Appr": {
+      "alt_name": "No Visibility Time",
+      "Unit": "seconds",
+      "Description": "Time without visual sight on the docking target during the Approach phase."
+    },
+    "NoVisTime_FA": {
+      "alt_name": "No Visibility Time",
+      "Unit": "seconds",
+      "Description": "Time without visual sight on the docking target during the Final Approach phase."
+    },
+    "NoVisTime_Total": {
+      "alt_name": "Total No Visibility Time",
+      "Unit": "seconds",
+      "Description": "Total time without visual sight on the docking target during the entire flight."
+    },
+    "THCPSD_Align": {
+      "alt_name": "THC Power Spectral Density Mean",
+      "Unit": "Hz",
+      "Description": "Translational Hand Controller mean frequency component during the Alignment phase."
+    },
+    "THCErr_Align": {
+      "alt_name": "THC Error",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller errors during the Alignment phase."
+    },
+    "RHCPSD_Align": {
+      "alt_name": "RHC Power Spectral Density Mean",
+      "Unit": "Hz",
+      "Description": "Rotational Hand Controller mean frequency component during the Alignment phase."
+    },
+    "RHCErr_Align": {
+      "alt_name": "RHC Error",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller errors during the Alignment phase."
+    },
+    "THCPSD_Appr": {
+      "alt_name": "THC Power Spectral Density Mean",
+      "Unit": "Hz",
+      "Description": "Translational Hand Controller mean frequency component during the Approach phase."
+    },
+    "THCErr_Appr": {
+      "alt_name": "THC Error",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller errors during the Approach phase."
+    },
+    "RHCPSD_Appr": {
+      "alt_name": "RHC Power Spectral Density Mean",
+      "Unit": "Hz",
+      "Description": "Rotational Hand Controller mean frequency component during the Approach phase."
+    },
+    "RHCErr_Appr": {
+      "alt_name": "RHC Error",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller errors during the Approach phase."
+    },
+    "THCPSD_FA": {
+      "alt_name": "THC Power Spectral Density Mean",
+      "Unit": "Hz",
+      "Description": "Translational Hand Controller mean frequency component during the Final Approach phase."
+    },
+    "THCErr_FA": {
+      "alt_name": "THC Error",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller errors during the Final Approach phase."
+    },
+    "RHCPSD_FA": {
+      "alt_name": "RHC Power Spectral Density Mean",
+      "Unit": "Hz",
+      "Description": "Rotational Hand Controller mean frequency component during the Final Approach phase."
+    },
+    "RHCErr_FA": {
+      "alt_name": "RHC Error",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller errors during the Final Approach phase."
+    },
+    "THCPSD_Total": {
+      "alt_name": "Total THC Power Spectral Mean",
+      "Unit": "Hz",
+      "Description": "Overall Translational Hand Controller mean frequency component during the entire flight."
+    },
+    "THCErr_Total": {
+      "alt_name": "Total THC Error",
+      "Unit": "count",
+      "Description": "Number of overall Translational Hand Controller errors during the entire flight."
+    },
+    "RHCPSD_Total": {
+      "alt_name": "Total RHC Power Spectral Density Mean",
+      "Unit": "Hz",
+      "Description": "Overall Rotational Hand Controller mean frequency component during the entire flight."
+    },
+    "RHCErr_Total": {
+      "alt_name": "Total RHC Error",
+      "Unit": "count",
+      "Description": "Number of overall Rotational Hand Controller errors during the entire flight."
+    },
+    "LatOffAvg_Align": {
+      "alt_name": "Average Lateral Offset",
+      "Unit": "meters",
+      "Description": "Average lateral offset from the ideal approach path during the Alignment phase."
+    },
+    "LatOffAvg_Appr": {
+      "alt_name": "Average Lateral Offset",
+      "Unit": "meters",
+      "Description": "Average lateral offset from the ideal approach path during the Approach phase."
+    },
+    "LatOffAvg_FA": {
+      "alt_name": "Average Lateral Offset",
+      "Unit": "meters",
+      "Description": "Average lateral offset from the ideal approach path during the Final Approach phase."
+    },
+    "LatOffAvg_Total": {
+      "alt_name": "Total Average Lateral Offset",
+      "Unit": "meters",
+      "Description": "Overall average lateral offset from the ideal approach path during the entire flight."
+    },
+    "RollRms_Align": {
+      "alt_name": "RMS Roll",
+      "Unit": "degrees",
+      "Description": "Root Mean Square of roll attitude during the Alignment phase."
+    },
+    "RollRms_Appr": {
+      "alt_name": "RMS Roll",
+      "Unit": "degrees",
+      "Description": "Root Mean Square of roll attitude during the Approach phase."
+    },
+    "RollRms_FA": {
+      "alt_name": "RMS Roll",
+      "Unit": "degrees",
+      "Description": "Root Mean Square of roll attitude during the Final Approach phase."
+    },
+    "RollRms_Total": {
+      "alt_name": "Total RMS Roll",
+      "Unit": "degrees",
+      "Description": "Overall Root Mean Square of roll attitude during the entire flight."
+    },
+    "YawRms_Align": {
+      "alt_name": "RMS Yaw",
+      "Unit": "degrees",
+      "Description": "Root Mean Square of yaw attitude during the Alignment phase."
+    },
+    "YawRms_Appr": {
+      "alt_name": "RMS Yaw",
+      "Unit": "degrees",
+      "Description": "Root Mean Square of yaw attitude during the Approach phase."
+    },
+    "YawRms_FA": {
+      "alt_name": "RMS Yaw",
+      "Unit": "degrees",
+      "Description": "Root Mean Square of yaw attitude during the Final Approach phase."
+    },
+    "YawRms_Total": {
+      "alt_name": "Total RMS Yaw",
+      "Unit": "degrees",
+      "Description": "Overall Root Mean Square of yaw attitude during the entire flight."
+    },
+    "PitchRms_Align": {
+      "alt_name": "RMS Pitch",
+      "Unit": "degrees",
+      "Description": "Root Mean Square of pitch attitude during the Alignment phase."
+    },
+    "PitchRms_Appr": {
+      "alt_name": "RMS Pitch",
+      "Unit": "degrees",
+      "Description": "Root Mean Square of pitch attitude during the Approach phase."
+    },
+    "PitchRms_FA": {
+      "alt_name": "RMS Pitch",
+      "Unit": "degrees",
+      "Description": "Root Mean Square of pitch attitude during the Final Approach phase."
+    },
+    "PitchRms_Total": {
+      "alt_name": "Total RMS Pitch",
+      "Unit": "degrees",
+      "Description": "Overall Root Mean Square of pitch attitude during the entire flight."
+    },
+    "Aggressiveness_Align": {
+      "alt_name": "Controller Aggressiveness",
+      "Unit": "stick deflection per second",
+      "Description": "Average rate of change on the control axes during the Alignment phase."
+    },
+    "Aggressiveness_Appr": {
+      "alt_name": "Controller Aggressiveness",
+      "Unit": "stick deflection per second",
+      "Description": "Average rate of change on the control axes during the Approach phase."
+    },
+    "Aggressiveness_FA": {
+      "alt_name": "Controller Aggressiveness",
+      "Unit": "stick deflection per second",
+      "Description": "Average rate of change on the control axes during the Final Approach phase."
+    },
+    "Aggressiveness_Total": {
+      "alt_name": "Total Controller Aggressiveness",
+      "Unit": "stick deflection per second",
+      "Description": "Overall average rate of change on the control axes during the entire flight."
+    },
+    "DutyCycle_Align": {
+      "alt_name": "Duty Cycle",
+      "Unit": "percent",
+      "Description": "Percentage of time where the pilot changes his control input during the Alignment phase.",
+      "optional": true
+    },
+    "DutyCycle_Appr": {
+      "alt_name": "Duty Cycle",
+      "Unit": "percent",
+      "Description": "Percentage of time where the pilot changes his control input during the Approach phase.",
+      "optional": true
+    },
+    "DutyCycle_FA": {
+      "alt_name": "Duty Cycle",
+      "Unit": "percent",
+      "Description": "Percentage of time where the pilot changes his control input during the Final Approach phase.",
+      "optional": true
+    },
+    "DutyCycle_Total": {
+      "alt_name": "Duty Cycle",
+      "Unit": "percent",
+      "Description": "Percentage of time where the pilot changes his control input during the entire flight.",
+      "optional": true
+    },
+    "Workload_Align": {
+      "alt_name": "Pilot Workload",
+      "Unit": "score",
+      "Description": "Measure of pilot workload during the Alignment phase. (Product of Aggressiveness and Duty Cycle)",
+      "optional": true
+    },
+    "Workload_Appr": {
+      "alt_name": "Pilot Workload",
+      "Unit": "score",
+      "Description": "Measure of pilot workload during the Approach phase. (Product of Aggressiveness and Duty Cycle)",
+      "optional": true
+    },
+    "Workload_FA": {
+      "alt_name": "Pilot Workload",
+      "Unit": "score",
+      "Description": "Measure of pilot workload during the Final Approach phase. (Product of Aggressiveness and Duty Cycle)",
+      "optional": true
+    },
+    "Workload_Total": {
+      "alt_name": "Total Pilot Workload",
+      "Unit": "score",
+      "Description": "Overall measure of pilot workload during the entire flight. (Product of Aggressiveness and Duty Cycle)",
+      "optional": true
+    }
   }
 }

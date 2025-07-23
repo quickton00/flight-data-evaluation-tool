@@ -121,13 +121,15 @@ def tier_data(test_row, phase):
 
     # Load parameter mapping file
     optional_columns = []
-    mapping_file = r"src\flight_data_evaluation_tool\parameter_mapping.json"
+    mapping_file = r"src\flight_data_evaluation_tool\results_template.json"
 
     if getattr(sys, "frozen", False):  # Check if running in a PyInstaller bundle
         mapping_file = sys._MEIPASS  # type: ignore
-        mapping_file = os.path.join(mapping_file, "parameter_mapping.json")
+        mapping_file = os.path.join(mapping_file, "results_template.json")
     with open(mapping_file, "r") as f:
         parameter_mapping = json.load(f)
+        parameter_mapping = parameter_mapping["columns"]
+        parameter_mapping = {key: value for key, value in parameter_mapping.items() if value}
 
     # Identify optional columns
     for column in database.columns:
