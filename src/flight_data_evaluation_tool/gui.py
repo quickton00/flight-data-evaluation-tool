@@ -252,10 +252,15 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 for item in total_tiered_data[tab][evaluation_tier]:
                     key = list(item.keys())[0]
 
+                    try:
+                        parameter_mapping[key]
+                    except KeyError:
+                        parameter_mapping[key] = {}
+
                     single_row_values = []
                     for col in column_keys:
                         if col == "Description" or col == "Unit":
-                            if type(parameter_mapping[key]) is dict and col in parameter_mapping[key]:
+                            if col in parameter_mapping[key]:
                                 single_row_values.append(parameter_mapping[key][col])
                             else:
                                 single_row_values.append("")
@@ -269,7 +274,7 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
                     values.append([key] + single_row_values)
 
-                    if tab != "Total Flight":
+                    if tab != "Total Flight" and "optional" not in parameter_mapping[key]:
                         sub_grades[tab] += item[key]["Weight"] * tier_factors[evaluation_tier]
 
                 table = CTkTable(panel._content_frame, row=len(values), column=len(values[0]), values=values)
@@ -279,8 +284,14 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 for row_idx in range(1, len(values)):
                     row_key = values[row_idx][0]
 
-                    if type(parameter_mapping[row_key]) is dict and "alt_name" in parameter_mapping[row_key]:
+                    if "alt_name" in parameter_mapping[row_key]:
                         table.insert(row_idx, 0, parameter_mapping[row_key]["alt_name"])
+
+                    if "optional" in parameter_mapping[row_key]:
+                        for col_idx in range(len(values[0])):
+                            cell = table.frame[(row_idx, col_idx)]
+                            if hasattr(cell, "configure"):
+                                cell.configure(text_color="gray")
 
                     widget_row = [table.frame[(row_idx, col_idx)] for col_idx in range(len(values[0]))]
                     # Bind <Enter> and <Leave> to all widgets in the row

@@ -1,5 +1,8 @@
 import pandas as pd
 import numpy as np
+import json
+import os
+import sys
 import pylab
 import scipy.stats as stats
 from scipy.stats import chi2
@@ -116,10 +119,36 @@ def tier_data(test_row, phase):
 
     database = database[database.columns.drop(list(database.filter(regex=regex_filter)))]
 
+    # Load parameter mapping file
+    optional_columns = []
+    mapping_file = r"src\flight_data_evaluation_tool\parameter_mapping.json"
+
+    if getattr(sys, "frozen", False):  # Check if running in a PyInstaller bundle
+        mapping_file = sys._MEIPASS  # type: ignore
+        mapping_file = os.path.join(mapping_file, "parameter_mapping.json")
+    with open(mapping_file, "r") as f:
+        parameter_mapping = json.load(f)
+
+    # Identify optional columns
+    for column in database.columns:
+        if column in parameter_mapping and parameter_mapping[column].get("optional", False):
+            optional_columns.append(column)
+
+    # Filter out optional columns for weight calculation
+    required_database = database.drop(columns=optional_columns)
+
+    # Calculate weights only for required columns
+    calculated_weights = calculate_phase_weights(required_database)
+
+    # Create weights DataFrame with all columns
     weights = pd.DataFrame(
-        [calculate_phase_weights(database)],
+        [pd.Series(0.0, index=database.columns)],
         columns=database.columns,
     )
+
+    # Assign calculated weights to required columns
+    for column in required_database.columns:
+        weights[column] = calculated_weights[column]
 
     counter = {"normal": 0, "non-normal": 0, "count-non-normal": 0, "zero-inflated": 0}
 

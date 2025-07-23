@@ -322,41 +322,49 @@
     "DutyCycle_Align": {
         "alt_name": "Duty Cycle",
         "Unit": "percent",
-        "Description": "Percentage of time where the pilot changes his control input during the Alignment phase."
+        "Description": "Percentage of time where the pilot changes his control input during the Alignment phase.",
+        "optional": true
     },
     "DutyCycle_Appr": {
         "alt_name": "Duty Cycle",
         "Unit": "percent",
-        "Description": "Percentage of time where the pilot changes his control input during the Approach phase."
+        "Description": "Percentage of time where the pilot changes his control input during the Approach phase.",
+        "optional": true
     },
     "DutyCycle_FA": {
         "alt_name": "Duty Cycle",
         "Unit": "percent",
-        "Description": "Percentage of time where the pilot changes his control input during the Final Approach phase."
+        "Description": "Percentage of time where the pilot changes his control input during the Final Approach phase.",
+        "optional": true
     },
     "DutyCycle_Total": {
         "alt_name": "Duty Cycle",
         "Unit": "percent",
-        "Description": "Percentage of time where the pilot changes his control input during the entire flight."
+        "Description": "Percentage of time where the pilot changes his control input during the entire flight.",
+        "optional": true
     },
     "Workload_Align": {
         "alt_name": "Pilot Workload",
         "Unit": "score",
-        "Description": "Measure of pilot workload during the Alignment phase. (Product of Aggressiveness and Duty Cycle)"
+        "Description": "Measure of pilot workload during the Alignment phase. (Product of Aggressiveness and Duty Cycle)",
+        "optional": true
     },
     "Workload_Appr": {
         "alt_name": "Pilot Workload",
         "Unit": "score",
-        "Description": "Measure of pilot workload during the Approach phase. (Product of Aggressiveness and Duty Cycle)"
+        "Description": "Measure of pilot workload during the Approach phase. (Product of Aggressiveness and Duty Cycle)",
+        "optional": true
     },
     "Workload_FA": {
         "alt_name": "Pilot Workload",
         "Unit": "score",
-        "Description": "Measure of pilot workload during the Final Approach phase. (Product of Aggressiveness and Duty Cycle)"
+        "Description": "Measure of pilot workload during the Final Approach phase. (Product of Aggressiveness and Duty Cycle)",
+        "optional": true
     },
     "Workload_Total": {
         "alt_name": "Total Pilot Workload",
         "Unit": "score",
-        "Description": "Overall measure of pilot workload during the entire flight. (Product of Aggressiveness and Duty Cycle)"
+        "Description": "Overall measure of pilot workload during the entire flight. (Product of Aggressiveness and Duty Cycle)",
+        "optional": true
     }
 }
