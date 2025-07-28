@@ -306,22 +306,22 @@
     },
     "Aggressiveness_Align": {
       "alt_name": "Controller Aggressiveness",
-      "Unit": "stick deflection per second",
+      "Unit": "stick defl. per sec.",
       "Description": "Average rate of change on the control axes during the Alignment phase."
     },
     "Aggressiveness_Appr": {
       "alt_name": "Controller Aggressiveness",
-      "Unit": "stick deflection per second",
+      "Unit": "stick defl. per sec.",
       "Description": "Average rate of change on the control axes during the Approach phase."
     },
     "Aggressiveness_FA": {
       "alt_name": "Controller Aggressiveness",
-      "Unit": "stick deflection per second",
+      "Unit": "stick defl. per sec.",
       "Description": "Average rate of change on the control axes during the Final Approach phase."
     },
     "Aggressiveness_Total": {
       "alt_name": "Total Controller Aggressiveness",
-      "Unit": "stick deflection per second",
+      "Unit": "stick defl. per sec.",
       "Description": "Overall average rate of change on the control axes during the entire flight."
     },
     "DutyCycle_Align": {

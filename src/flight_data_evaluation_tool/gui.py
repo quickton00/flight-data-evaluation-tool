@@ -279,8 +279,15 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                     if tab != "Total Flight" and "optional" not in parameter_mapping[key]:
                         sub_grades[tab] += item[key]["Weight"] * tier_factors[evaluation_tier]
 
-                table = CTkTable(panel._content_frame, row=len(values), column=len(values[0]), values=values)
-                table.pack(fill="both", padx=10, pady=2)
+                table = CTkTable(
+                    panel._content_frame,
+                    row=len(values),
+                    column=len(values[0]),
+                    values=values,
+                    corner_radius=0,
+                    width=0,
+                )
+                table.pack(expand=True, fill="both", padx=10, pady=2)
 
                 # Add hover event for each row except header
                 for row_idx in range(1, len(values)):
