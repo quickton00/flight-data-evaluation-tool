@@ -1,6 +1,6 @@
 import customtkinter
 from CTkTable import CTkTable
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 import hashlib
 import os
 import sys
@@ -34,6 +34,9 @@ except ImportError:
     )
     from plot import create_figure, create_heatmaps
     from grading import tier_data
+
+PASSWORD = "e2f1be635b488b29721fb33157b33f3762433a8b7db220fa8db9750749c53c03"
+GRADING_UNLOCKED = False
 
 
 class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
@@ -217,7 +220,6 @@ class EvaluationWindow(customtkinter.CTkToplevel):
             "Poor": 4,
             "Very Poor": 5,
         }
-        phase_relevance_factors = {"Alignment Phase": 0.2, "Approach Phase": 0.3, "Final Approach Phase": 0.5}
 
         total_tiered_data = {}
 
@@ -320,18 +322,19 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 for item in temp_tired_data[tab][tier]:
                     self.dataobjs[tab].update(item)
 
-        final_grade = 0
-        for phase, sub_grade in sub_grades.items():
-            final_grade += sub_grade * phase_relevance_factors[phase]
-
         sub_grades = {phase: round(sub_grade, 2) for phase, sub_grade in sub_grades.items()}
 
-        grade_label = customtkinter.CTkLabel(
+        self.grade_label = customtkinter.CTkLabel(
             master=self,
-            text=f"Sub Grades: {sub_grades} Final Grade: {round(final_grade, 2)}",
+            text="",
             fg_color="transparent",
         )
-        grade_label.pack(pady=15, padx=15)
+        self.grade_label.pack(side="left", pady=15, padx=(15, 10))
+
+        calculate_grade_button = customtkinter.CTkButton(
+            master=self, text="Calculate Grade", command=lambda: self.calculate_grade(sub_grades)
+        )
+        calculate_grade_button.pack(side="right", pady=15, padx=(15, 10))
 
         # lift TopLevelWindow in front
         self.lift()
@@ -342,6 +345,35 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         # to set the icon again after 200ms
         if sys.platform.startswith("win"):
             self.after(200, lambda: self.iconbitmap(icon_path))
+
+    def calculate_grade(self, sub_grades):
+        """
+        Calculate the final grade based on the sub-grades and update the label.
+        """
+        global GRADING_UNLOCKED
+
+        if not GRADING_UNLOCKED:
+            entered_password = simpledialog.askstring("Password", "Enter password:", show="*")
+
+            if not entered_password:
+                return
+
+            entered_password = hashlib.sha256(str.encode(entered_password)).hexdigest()
+
+            if entered_password != PASSWORD:
+                messagebox.showerror("Error", "Incorrect password!")
+                return
+            else:
+                GRADING_UNLOCKED = True
+
+        final_grade = 0
+        phase_relevance_factors = {"Alignment Phase": 0.2, "Approach Phase": 0.3, "Final Approach Phase": 0.5}
+
+        for phase, sub_grade in sub_grades.items():
+            final_grade += sub_grade * phase_relevance_factors[phase]
+
+        # Update the label with the final grade
+        self.grade_label.configure(text=f"Sub Grades: {sub_grades} Final Grade: {round(final_grade, 2)}")
 
     def close_hist_window(self, event=None):
         """
@@ -739,11 +771,6 @@ class PlotWindow(customtkinter.CTkToplevel):
         )
         pilot_label.grid(row=0, column=0, sticky="w", padx=5, pady=5)
 
-        evaluation_button = customtkinter.CTkButton(
-            master=self, text="Evaluate Flight Phases", command=self.evaluate_button_event
-        )
-        evaluation_button.grid(row=0, column=3, sticky="s", padx=5, pady=5)
-
         # Add phase number fields
         self.entries = {}
         for counter, phase in enumerate(
@@ -776,11 +803,17 @@ class PlotWindow(customtkinter.CTkToplevel):
                 slider._canvas.bind("<Right>", partial(self.keyboard_slider_control, slider, phase, "right"))
 
         # Add various buttons
+        evaluation_button = customtkinter.CTkButton(
+            master=self, text="Evaluate Flight Phases", command=self.evaluate_button_event
+        )
+        evaluation_button.grid(row=5, column=2, sticky="s", padx=15, pady=15)
+
         if x_axis_type == "SimTime":
-            add_to_database_button = customtkinter.CTkButton(
-                master=self, text="Add flight to database", command=self.add_to_database_button_event
-            )
-            add_to_database_button.grid(row=5, column=2, padx=15, pady=15, sticky="s")
+            if not getattr(sys, "frozen", False):
+                add_to_database_button = customtkinter.CTkButton(
+                    master=self, text="Add flight to database", command=self.add_to_database_button_event
+                )
+                add_to_database_button.grid(row=0, column=3, sticky="s", padx=5, pady=5)
         else:
             self.switch_var = customtkinter.StringVar(value="on")
             phases_switch = customtkinter.CTkSwitch(
@@ -791,7 +824,7 @@ class PlotWindow(customtkinter.CTkToplevel):
                 onvalue="on",
                 offvalue="off",
             )
-            phases_switch.grid(row=5, column=2, padx=15, pady=15, sticky="s")
+            phases_switch.grid(row=0, column=3, padx=5, pady=5, sticky="s")
 
         print_button = customtkinter.CTkButton(
             master=self, text="Save Plots individually", command=self.print_button_event
@@ -814,6 +847,8 @@ class PlotWindow(customtkinter.CTkToplevel):
                 text="Flight Errors could not be determined. Check if scenario is a docking scenario!",
                 fg_color="#ED2939",
             )
+
+        self.state("zoomed")
 
         # lift TopLevelWindow in front
         self.lift()
