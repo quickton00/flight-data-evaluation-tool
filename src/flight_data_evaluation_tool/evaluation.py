@@ -5,6 +5,7 @@ import sys
 import json
 import pandas as pd
 import numpy as np
+from scipy import signal
 
 
 def create_dataframe_template_from_json(template_file=r"src\flight_data_evaluation_tool\results_template.json"):
@@ -669,18 +670,25 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             & (flight_data["SimTime"] < flight_phase_timestamps[stop_index])
         ]
 
-        # Combine all coordinates for each controller
+        if len(filtered_flight_data) < 2:
+            results[f"{controller}PSD_{phase}"] = 0
+            continue
+
+        # Get sampling frequency from time data
+        dt = np.mean(np.diff(filtered_flight_data["SimTime"]))
+        fs = 1.0 / dt if dt > 0 else 1.0
+
+        # Combine all coordinates for each controller (magnitude)
         combined_signal = np.sqrt(
             filtered_flight_data[f"{controller}.x"] ** 2
             + filtered_flight_data[f"{controller}.y"] ** 2
             + filtered_flight_data[f"{controller}.z"] ** 2
         )
 
-        N = len(filtered_flight_data)
-        yf = np.fft.fft(combined_signal)
-        psd = np.abs(yf) ** 2 / N
-
-        results[f"{controller}PSD_{phase}"] = np.mean(psd)
+        # Calculate PSD using Welch's method for better frequency resolution
+        _, psd = signal.welch(combined_signal, fs=fs, nperseg=min(256, len(combined_signal) // 4))
+        # Take mean of PSD values (excluding DC component)
+        results[f"{controller}PSD_{phase}"] = np.mean(psd[1:]) if len(psd) > 1 else np.mean(psd)
 
     # calculation for "Aggressiveness_{phase}"
     if f"Aggressiveness_{phase}" in results.columns:
