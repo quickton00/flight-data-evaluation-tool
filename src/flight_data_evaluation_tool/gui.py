@@ -158,6 +158,7 @@ class PhasesTabView(customtkinter.CTkTabview):
             "Normal": "#f39c11",
             "Poor": "#E55451",
             "Very Poor": "#ED2939",
+            "Not Tierable": "#808080",
         }
         self.panels = {tab: {} for tab in self.tabs}
 
@@ -297,12 +298,6 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
                     if "alt_name" in parameter_mapping[row_key]:
                         table.insert(row_idx, 0, parameter_mapping[row_key]["alt_name"])
-
-                    if "optional" in parameter_mapping[row_key]:
-                        for col_idx in range(len(values[0])):
-                            cell = table.frame[(row_idx, col_idx)]
-                            if hasattr(cell, "configure"):
-                                cell.configure(text_color="gray")
 
                     widget_row = [table.frame[(row_idx, col_idx)] for col_idx in range(len(values[0]))]
                     # Bind <Enter> and <Leave> to all widgets in the row
@@ -528,11 +523,14 @@ class HistWindow(customtkinter.CTkToplevel):
         # Plot PDF
         if len(data) > 1:
             kde = gaussian_kde(data)
-            if min(data) < borders[0]:
+            if not borders or min(data) < borders[0]:
                 x_min = min(data)
             else:
                 x_min = borders[0]
-            x_max = max(data)
+            if max(data) < current_value:
+                x_max = current_value
+            else:
+                x_max = max(data)
             x_vals = np.linspace(x_min, x_max, 200)
             ax.plot(x_vals, kde(x_vals), color="black", lw=1, label=f"PDF{transformed_label}")
 
@@ -946,6 +944,20 @@ class PlotWindow(customtkinter.CTkToplevel):
         """
 
         self.execution_info.configure(text="", fg_color="transparent")
+
+        try:
+            self.master.data_frame[self.master.data_frame["Port Pos.x [m]"] == 0].iloc[0]["SimTime"]
+        except IndexError:
+            messagebox.showerror(
+                "Flight Database Error",
+                "You are only allowed to add successfull docking attempts to the database.",
+            )
+            self.execution_info.configure(text="Flight Database Error", fg_color="#ED2939")
+            # lift TopLevelWindow in front
+            self.lift()
+            self.focus_force()
+            self.after(10, self.focus_force)
+            return
 
         sorted = True
         for counter, _ in enumerate(list(self.phases.values())[0:-1]):

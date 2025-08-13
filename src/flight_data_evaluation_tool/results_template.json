@@ -326,26 +326,26 @@
     },
     "DutyCycle_Align": {
       "alt_name": "Duty Cycle",
-      "Unit": "percent",
-      "Description": "Percentage of time where the pilot changes his control input during the Alignment phase.",
+      "Unit": "proportion",
+      "Description": "Proportion of time where the pilot changes his control input during the Alignment phase.",
       "optional": true
     },
     "DutyCycle_Appr": {
       "alt_name": "Duty Cycle",
-      "Unit": "percent",
-      "Description": "Percentage of time where the pilot changes his control input during the Approach phase.",
+      "Unit": "proportion",
+      "Description": "Proportion of time where the pilot changes his control input during the Approach phase.",
       "optional": true
     },
     "DutyCycle_FA": {
       "alt_name": "Duty Cycle",
-      "Unit": "percent",
-      "Description": "Percentage of time where the pilot changes his control input during the Final Approach phase.",
+      "Unit": "proportion",
+      "Description": "Proportion of time where the pilot changes his control input during the Final Approach phase.",
       "optional": true
     },
     "DutyCycle_Total": {
       "alt_name": "Duty Cycle",
-      "Unit": "percent",
-      "Description": "Percentage of time where the pilot changes his control input during the entire flight.",
+      "Unit": "proportion",
+      "Description": "Proportion of time where the pilot changes his control input during the entire flight.",
       "optional": true
     },
     "Workload_Align": {
@@ -370,6 +370,126 @@
       "alt_name": "Total Pilot Workload",
       "Unit": "score",
       "Description": "Overall measure of pilot workload during the entire flight. (Product of Aggressiveness and Duty Cycle)",
+      "optional": true
+    },
+    "THC_Align": {
+      "alt_name": "THC Steering Inputs",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller steering inputs during the Alignment phase.",
+      "optional": true
+    },
+      "THC_Appr": {
+      "alt_name": "THC Steering Inputs",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller steering inputs during the Approach phase.",
+      "optional": true
+    },
+      "THC_FA": {
+      "alt_name": "THC Steering Inputs",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller steering inputs during the Final Approach phase.",
+      "optional": true
+    },
+      "THC_Total": {
+      "alt_name": "Total THC Steering Inputs",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller steering inputs during the entire flight.",
+      "optional": true
+    },
+      "RHC_Align": {
+      "alt_name": "RHC Steering Inputs",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller steering inputs during the Alignment phase.",
+      "optional": true
+    },
+      "RHC_Appr": {
+      "alt_name": "RHC Steering Inputs",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller steering inputs during the Approach phase.",
+      "optional": true
+    },
+      "RHC_FA": {
+      "alt_name": "RHC Steering Inputs",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller steering inputs during the Final Approach phase.",
+      "optional": true
+    },
+      "RHC_Total": {
+      "alt_name": "Total RHC Steering Inputs",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller steering inputs during the entire flight.",
+      "optional": true
+    },
+    "CombJoy_Align": {
+      "alt_name": "Dual Joystick Use",
+      "Unit": "count",
+      "Description": "Number of times where both controllers are used simultaneously in the Alignment phase.",
+      "optional": true
+    },
+    "CombJoy_Appr": {
+      "alt_name": "Dual Joystick Use",
+      "Unit": "count",
+      "Description": "Number of times where both controllers are used simultaneously in the Approach phase.",
+      "optional": true
+    },
+    "CombJoy_FA": {
+      "alt_name": "Dual Joystick Use",
+      "Unit": "count",
+      "Description": "Number of times where both controllers are used simultaneously in the Final Approach phase.",
+      "optional": true
+    },
+    "CombJoy_Total": {
+      "alt_name": "Dual Joystick Use",
+      "Unit": "count",
+      "Description": "Number of times where both controllers are used simultaneously in the entire flight.",
+      "optional": true
+    },
+    "THCIndErr_Align": {
+      "alt_name": "THC Induced Error",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller errors where also a steering input \n on a different axis of the same controller occured (possible cause of the error).",
+      "optional": true
+    },
+    "THCIndErr_Appr": {
+      "alt_name": "THC Induced Error",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller errors where also a steering input \n on a different axis of the same controller occured (possible cause of the error).",
+      "optional": true
+    },
+    "THCIndErr_FA": {
+      "alt_name": "THC Induced Error",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller errors where also a steering input \n on a different axis of the same controller occured (possible cause of the error).",
+      "optional": true
+    },
+    "THCIndErr_Total": {
+      "alt_name": "THC Induced Error",
+      "Unit": "count",
+      "Description": "Number of Translational Hand Controller errors where also a steering input \n on a different axis of the same controller occured (possible cause of the error).",
+      "optional": true
+    },
+    "RHCIndErr_Align": {
+      "alt_name": "RHC Induced Error",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller errors where also a steering input \n on a different axis of the same controller occured (possible cause of the error).",
+      "optional": true
+    },
+    "RHCIndErr_Appr": {
+      "alt_name": "RHC Induced Error",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller errors where also a steering input \n on a different axis of the same controller occured (possible cause of the error).",
+      "optional": true
+    },
+    "RHCIndErr_FA": {
+      "alt_name": "RHC Induced Error",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller errors where also a steering input \n on a different axis of the same controller occured (possible cause of the error).",
+      "optional": true
+    },
+    "RHCIndErr_Total": {
+      "alt_name": "RHC Induced Error",
+      "Unit": "count",
+      "Description": "Number of Rotational Hand Controller errors where also a steering input \n on a different axis of the same controller occured (possible cause of the error).",
       "optional": true
     }
   }

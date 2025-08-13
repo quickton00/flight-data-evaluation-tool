@@ -154,7 +154,7 @@ def tier_data(test_row, phase):
 
     counter = {"normal": 0, "non-normal": 0, "count-non-normal": 0, "zero-inflated": 0}
 
-    tiered_data = {"Excellent": [], "Good": [], "Normal": [], "Poor": [], "Very Poor": []}
+    tiered_data = {"Excellent": [], "Good": [], "Normal": [], "Poor": [], "Very Poor": [], "Not Tierable": []}
 
     metrics = {}
 
@@ -165,23 +165,30 @@ def tier_data(test_row, phase):
 
         counter[dist_type] += 1
 
+        current_value = test_row[column]
+
+        data_obj = {
+            column: {
+                "Value": current_value,
+                "Mean": metric.mean(),
+                "Std": metric.std(),
+                "Type": dist_type,
+                "Weight": weights[column].iloc[0],
+                "Percentile": "",
+                "Borders": [],
+            }
+        }
+
+        if column in optional_columns:
+            tiered_data["Not Tierable"].append(data_obj)
+            continue
+
         if dist_type == "normal" and not zero_inflated:
-            current_value = test_row[column]
 
             tier_borders = [metric.mean() + i * metric.std() for i in [-2, -1, 1, 2]]
             tier_borders = [0 if border < 0 else border for border in tier_borders]
 
-            data_obj = {
-                column: {
-                    "Value": current_value,
-                    "Mean": metric.mean(),
-                    "Std": metric.std(),
-                    "Type": dist_type,
-                    "Weight": weights[column].iloc[0],
-                    "Percentile": "",
-                    "Borders": tier_borders,
-                }
-            }
+            data_obj[column]["Borders"] = tier_borders
 
             if current_value == 0:
                 tiered_data["Excellent"].append(data_obj)
@@ -195,22 +202,10 @@ def tier_data(test_row, phase):
                 data_obj[column]["Borders"] = tier_borders
                 metrics[column] = metric
 
-            if current_value <= tier_borders[0]:
-                tiered_data["Excellent"].append(data_obj)
-            elif current_value <= tier_borders[1]:
-                tiered_data["Good"].append(data_obj)
-            elif current_value <= tier_borders[2]:
-                tiered_data["Normal"].append(data_obj)
-            elif current_value <= tier_borders[3]:
-                tiered_data["Poor"].append(data_obj)
-            else:
-                tiered_data["Very Poor"].append(data_obj)
         elif dist_type == "non-normal" or dist_type == "count-non-normal" or zero_inflated:
             # visual inspection via Q-Q plot
             # stats.probplot(metric, dist="norm", plot=pylab)
             # pylab.show()
-
-            current_value = test_row[column]
 
             sorted_metric = metric.sort_values(ignore_index=True)
 
@@ -226,31 +221,22 @@ def tier_data(test_row, phase):
                 sorted_metric.nsmallest(round(len(sorted_metric) * 0.977 + 0.5)).values[-1],
             ]
 
-            data_obj = {
-                column: {
-                    "Value": current_value,
-                    "Mean": metric.mean(),
-                    "Std": metric.std(),
-                    "Type": dist_type,
-                    "Weight": weights[column].iloc[0],
-                    "Percentile": percentile,
-                    "Borders": tier_borders,
-                }
-            }
-
-            if current_value <= tier_borders[0]:
-                tiered_data["Excellent"].append(data_obj)
-            elif current_value <= tier_borders[1]:
-                tiered_data["Good"].append(data_obj)
-            elif current_value <= tier_borders[2]:
-                tiered_data["Normal"].append(data_obj)
-            elif current_value <= tier_borders[3]:
-                tiered_data["Poor"].append(data_obj)
-            else:
-                tiered_data["Very Poor"].append(data_obj)
+            data_obj[column]["Borders"] = tier_borders
+            data_obj[column]["Percentile"] = percentile
 
         else:
             raise ValueError("Invalid distribution type. Use 'normal', 'non-normal' or 'count-non-normal'.")
+
+        if current_value <= tier_borders[0]:
+            tiered_data["Excellent"].append(data_obj)
+        elif current_value <= tier_borders[1]:
+            tiered_data["Good"].append(data_obj)
+        elif current_value <= tier_borders[2]:
+            tiered_data["Normal"].append(data_obj)
+        elif current_value <= tier_borders[3]:
+            tiered_data["Poor"].append(data_obj)
+        else:
+            tiered_data["Very Poor"].append(data_obj)
 
     # print(counter)
 

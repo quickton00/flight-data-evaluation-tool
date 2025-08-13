@@ -286,9 +286,15 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
 
     # calculation for "{controller}{coordinate}_{phase}" and "{controller}{coordinate}AvgTime_{phase}"
     for controller in ["THC", "RHC"]:
+        if f"{controller}_{phase}" not in results.columns:
+            continue
+
+        results[f"{controller}_{phase}"] = 0
+
+        if f"{controller}AvgTime_{phase}" in results.columns:
+            results[f"{controller}AvgTime_{phase}"] = []
+
         for coordinate in ["x", "y", "z"]:
-            if f"{controller}.{coordinate}_{phase}" not in results.columns:
-                continue
 
             start_condition = (
                 (flight_data[f"{controller}.{coordinate}"] != 0)
@@ -307,7 +313,10 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             )
 
             # calculation for "{controller}{coordinate}_{phase}"
-            results[f"{controller}{coordinate}_{phase}"] = (start_condition).sum()
+            results[f"{controller}_{phase}"] += (start_condition).sum()
+
+            if f"{controller}AvgTime_{phase}" not in results.columns:
+                continue
 
             # calculation for "{controller}{coordinate}AvgTime_{phase}"
             (start_steering_timestamps, stop_steering_timestamps) = start_stop_condition_evaluation(
@@ -320,14 +329,14 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             )
 
             if len(start_steering_timestamps) != 0:
-                results[f"{controller}{coordinate}AvgTime_{phase}"] = np.mean(
+                results[f"{controller}AvgTime_{phase}"] = results[f"{controller}AvgTime_{phase}"].extend(
                     [
                         stop_steering_timestamps[i] - start_steering_timestamps[i]
                         for i in range(len(start_steering_timestamps))
                     ]
                 )
-            else:
-                results[f"{controller}{coordinate}AvgTime_{phase}"] = 0
+        if f"{controller}AvgTime_{phase}" in results.columns:
+            results[f"{controller}AvgTime_{phase}"] = np.mean(results[f"{controller}AvgTime_{phase}"])
 
     # calculation for "THCxErr_{phase}" and "THCxIndErr_{phase}"
     results[f"THCErr_{phase}"] = 0
@@ -366,6 +375,11 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
 
     if phase == "Total":
         total_flight_errors["THC.x"] = flight_errors["SimTime"].to_list()
+
+    results[f"THCIndErr_{phase}"] = 0
+    results[f"RHCIndErr_{phase}"] = 0
+
+    results[f"THCIndErr_{phase}"] += len(flight_errors[flight_errors[["THC.y", "THC.z"]].any(axis=1)])
 
     # calculation for "THCxIndErr_{phase}"
     if f"THCxIndErr_{phase}" in results.columns:
@@ -507,14 +521,18 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             results[f"{controller}Err_{phase}"] += len(flight_errors)
 
             # calculation for "{controller}{coordinate}IndErr_{phase}"
+            if controller == "THC":
+                other_controller_axis = ["THC.y", "THC.z"]
+            else:
+                other_controller_axis = ["RHC.x", "RHC.y", "RHC.z"]
+
+            other_controller_axis.remove(f"{controller}.{coordinate}")
+
+            results[f"{controller}IndErr_{phase}"] += len(
+                flight_errors[flight_errors[other_controller_axis].any(axis=1)]
+            )
+
             if f"{controller}{coordinate}IndErr_{phase}" in results.columns:
-                if controller == "THC":
-                    other_controller_axis = ["THC.y", "THC.z"]
-                else:
-                    other_controller_axis = ["RHC.x", "RHC.y", "RHC.z"]
-
-                other_controller_axis.remove(f"{controller}.{coordinate}")
-
                 results[f"{controller}{coordinate}IndErr_{phase}"] = len(
                     flight_errors[flight_errors[other_controller_axis].any(axis=1)]
                 )
@@ -541,7 +559,7 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
                 )
 
     # calculation for "CombJoy_{phase}" and "CombJoyTime_{phase}"
-    if f"CombJoy_{phase}" and "CombJoyTime_{phase}" in results.columns:
+    if f"CombJoy_{phase}" in results.columns:
         start_condition = (
             (
                 flight_data[["THC.x", "THC.y", "THC.z"]].any(axis=1)
@@ -573,7 +591,9 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
         # calculation for "CombJoy_{phase}"
         results[f"CombJoy_{phase}"] = (start_condition).sum()
 
-        # calculation for "CombJoyTime_{phase}"
+    # calculation for "CombJoyTime_{phase}"
+    if "CombJoyTime_{phase}" in results.columns:
+
         (start_steering_timestamps, stop_steering_timestamps) = start_stop_condition_evaluation(
             flight_data, start_condition, stop_condition, start_index, stop_index, flight_phase_timestamps
         )
