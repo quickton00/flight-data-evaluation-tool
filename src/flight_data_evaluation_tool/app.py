@@ -255,7 +255,7 @@ class App(customtkinter.CTk):
             except ValueError:
                 messagebox.showerror(
                     "Log Naming Error",
-                    f"The last part of the Log filename should be a numerical identifier like 0000, 0001 etc. but is actually '{file_basename.split("_")[-1]}'",
+                    f"The last part of the Log filename should be a numerical identifier like 0000, 0001 etc. but is actually '{file_basename.split('_')[-1]}'",
                 )
                 self.execution_info.configure(text="Log Naming Error", fg_color="#ED2939")
                 return

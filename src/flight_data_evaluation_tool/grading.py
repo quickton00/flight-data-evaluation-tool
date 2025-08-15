@@ -126,7 +126,7 @@ def tier_data(test_row, phase):
     if getattr(sys, "frozen", False):  # Check if running in a PyInstaller bundle
         mapping_file = sys._MEIPASS  # type: ignore
         mapping_file = os.path.join(mapping_file, "results_template.json")
-    with open(mapping_file, "r") as f:
+    with open(mapping_file, "r", encoding="utf-8") as f:
         parameter_mapping = json.load(f)
         parameter_mapping = parameter_mapping["columns"]
         parameter_mapping = {key: value for key, value in parameter_mapping.items() if value}
@@ -138,19 +138,6 @@ def tier_data(test_row, phase):
 
     # Filter out optional columns for weight calculation
     required_database = database.drop(columns=optional_columns)
-
-    # Calculate weights only for required columns
-    calculated_weights = calculate_phase_weights(required_database)
-
-    # Create weights DataFrame with all columns
-    weights = pd.DataFrame(
-        [pd.Series(0.0, index=database.columns)],
-        columns=database.columns,
-    )
-
-    # Assign calculated weights to required columns
-    for column in required_database.columns:
-        weights[column] = calculated_weights[column]
 
     counter = {"normal": 0, "non-normal": 0, "count-non-normal": 0, "zero-inflated": 0}
 
@@ -173,7 +160,6 @@ def tier_data(test_row, phase):
                 "Mean": metric.mean(),
                 "Std": metric.std(),
                 "Type": dist_type,
-                "Weight": weights[column].iloc[0],
                 "Percentile": "",
                 "Borders": [],
             }
@@ -249,7 +235,7 @@ def tier_data(test_row, phase):
 
         compare_weighting_methods_and_rank(database, types, filename="alignment_phase_weighting_comparison.xlsx")
 
-    return tiered_data, metrics
+    return tiered_data, metrics, required_database
 
 
 def calculate_phase_weights(data):

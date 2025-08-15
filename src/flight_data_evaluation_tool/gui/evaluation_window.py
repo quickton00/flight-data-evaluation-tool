@@ -11,7 +11,7 @@ from CTkTable import CTkTable
 from tkinter import messagebox, simpledialog
 
 import globals
-from grading import tier_data
+from grading import tier_data, calculate_phase_weights
 from gui.CTKcustom import PhasesTabView
 
 
@@ -46,19 +46,11 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         phases_tabview = PhasesTabView(master=self)
         phases_tabview.pack(fill="both", expand=True, padx=15, pady=15)
 
-        sub_grades = {"Alignment Phase": 0, "Approach Phase": 0, "Final Approach Phase": 0}
-        tier_factors = {
-            "Excellent": 1,
-            "Good": 2,
-            "Normal": 3,
-            "Poor": 4,
-            "Very Poor": 5,
-        }
-
         total_tiered_data = {}
+        total_metric_database = {}
 
         for tab in phases_tabview.tabs:
-            total_tiered_data[tab], self.metrics[tab] = tier_data(evaluated_results, tab)
+            total_tiered_data[tab], self.metrics[tab], total_metric_database[tab] = tier_data(evaluated_results, tab)
 
             for evaluation_tier in phases_tabview.evaluation_tiers:
                 if not total_tiered_data[tab][evaluation_tier]:
@@ -81,7 +73,7 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 if getattr(sys, "frozen", False):  # Check if running in a PyInstaller bundle
                     mapping_file = sys._MEIPASS  # type: ignore
                     mapping_file = os.path.join(mapping_file, "results_template.json")
-                with open(mapping_file, "r") as f:
+                with open(mapping_file, "r", encoding="utf-8") as f:
                     parameter_mapping = json.load(f)
                     parameter_mapping = parameter_mapping["columns"]
                     parameter_mapping = {key: value for key, value in parameter_mapping.items() if value}
@@ -111,9 +103,6 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                             single_row_values.append(item[key][col])
 
                     values.append([key] + single_row_values)
-
-                    if tab != "Total Flight" and "optional" not in parameter_mapping[key]:
-                        sub_grades[tab] += item[key]["Weight"] * tier_factors[evaluation_tier]
 
                 table = CTkTable(
                     panel._content_frame,
@@ -150,8 +139,6 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 for item in temp_tired_data[tab][tier]:
                     self.dataobjs[tab].update(item)
 
-        sub_grades = {phase: round(sub_grade, 2) for phase, sub_grade in sub_grades.items()}
-
         self.grade_label = customtkinter.CTkLabel(
             master=self,
             text="",
@@ -160,7 +147,9 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         self.grade_label.pack(side="left", pady=15, padx=(15, 10))
 
         calculate_grade_button = customtkinter.CTkButton(
-            master=self, text="Calculate Grade", command=lambda: self.calculate_grade(sub_grades)
+            master=self,
+            text="Calculate Grade",
+            command=lambda: self.calculate_grade(total_tiered_data, total_metric_database),
         )
         calculate_grade_button.pack(side="right", pady=15, padx=(15, 10))
 
@@ -174,7 +163,7 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         if sys.platform.startswith("win"):
             self.after(200, lambda: self.iconbitmap(globals.icon_path))
 
-    def calculate_grade(self, sub_grades):
+    def calculate_grade(self, total_tiered_data, total_metric_database):
         """
         Calculate the final grade based on the sub-grades and update the label.
         """
@@ -194,7 +183,26 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 globals.grading_unlocked = True
 
         final_grade = 0
+        sub_grades = {"Alignment Phase": 0, "Approach Phase": 0, "Final Approach Phase": 0}
         phase_relevance_factors = {"Alignment Phase": 0.2, "Approach Phase": 0.3, "Final Approach Phase": 0.5}
+        tier_factors = {
+            "Excellent": 1,
+            "Good": 2,
+            "Normal": 3,
+            "Poor": 4,
+            "Very Poor": 5,
+        }
+
+        for tab in sub_grades:
+            # calculate the weights of the evaluation metrics for this phas
+            weights = calculate_phase_weights(total_metric_database[tab])
+
+            for evaluation_tier in tier_factors:
+                for item in total_tiered_data[tab][evaluation_tier]:
+                    item = list(item.keys())[0]
+                    sub_grades[tab] += weights[item] * tier_factors[evaluation_tier]
+
+        sub_grades = {phase: round(sub_grade, 2) for phase, sub_grade in sub_grades.items()}
 
         for phase, sub_grade in sub_grades.items():
             final_grade += sub_grade * phase_relevance_factors[phase]
