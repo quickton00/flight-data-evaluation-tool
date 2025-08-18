@@ -111,6 +111,7 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                     values=values,
                     corner_radius=0,
                     width=0,
+                    header_color=panel.header_button.cget("fg_color"),
                 )
                 table.pack(expand=True, fill="both", padx=10, pady=2)
 
@@ -139,19 +140,30 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 for item in temp_tired_data[tab][tier]:
                     self.dataobjs[tab].update(item)
 
-        self.grade_label = customtkinter.CTkLabel(
+        self.sub_grade_label = customtkinter.CTkLabel(
             master=self,
             text="",
             fg_color="transparent",
         )
-        self.grade_label.pack(side="left", pady=15, padx=(15, 10))
+        self.sub_grade_label.pack(side="left", pady=15, padx=(15, 10))
 
-        calculate_grade_button = customtkinter.CTkButton(
+        self.total_grade_label = customtkinter.CTkLabel(
+            master=self,
+            text="",
+            fg_color="transparent",
+        )
+        self.total_grade_label.pack(side="left", pady=15, padx=(15, 10))
+
+        # Only show grading button with secret keyboard shortcut
+        self.bind_all("<Shift-G>", self.show_grading_button)  # Ctrl+Shift+G
+
+        self.calculate_grade_button = customtkinter.CTkButton(
             master=self,
             text="Calculate Grade",
             command=lambda: self.calculate_grade(total_tiered_data, total_metric_database),
         )
-        calculate_grade_button.pack(side="right", pady=15, padx=(15, 10))
+        if globals.grading_unlocked:
+            self.calculate_grade_button.pack(side="right", pady=15, padx=(15, 10))
 
         # lift TopLevelWindow in front
         self.lift()
@@ -162,6 +174,15 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         # to set the icon again after 200ms
         if sys.platform.startswith("win"):
             self.after(200, lambda: self.iconbitmap(globals.icon_path))
+
+    def show_grading_button(self, event=None):
+        if globals.grading_unlocked:
+            return
+
+        if self.calculate_grade_button.winfo_ismapped():
+            return
+
+        self.calculate_grade_button.pack(side="right", pady=15, padx=(15, 10))
 
     def calculate_grade(self, total_tiered_data, total_metric_database):
         """
@@ -193,22 +214,31 @@ class EvaluationWindow(customtkinter.CTkToplevel):
             "Very Poor": 5,
         }
 
-        for tab in sub_grades:
+        for phase in sub_grades:
             # calculate the weights of the evaluation metrics for this phas
-            weights = calculate_phase_weights(total_metric_database[tab])
+            weights = calculate_phase_weights(total_metric_database[phase])
 
             for evaluation_tier in tier_factors:
-                for item in total_tiered_data[tab][evaluation_tier]:
+                for item in total_tiered_data[phase][evaluation_tier]:
                     item = list(item.keys())[0]
-                    sub_grades[tab] += weights[item] * tier_factors[evaluation_tier]
+                    sub_grades[phase] += weights[item] * tier_factors[evaluation_tier]
 
         sub_grades = {phase: round(sub_grade, 2) for phase, sub_grade in sub_grades.items()}
 
         for phase, sub_grade in sub_grades.items():
             final_grade += sub_grade * phase_relevance_factors[phase]
 
-        # Update the label with the final grade
-        self.grade_label.configure(text=f"Sub Grades: {sub_grades} Final Grade: {round(final_grade, 2)}")
+        # Format sub grades in a user-friendly way
+        sub_grade_text = "Phase Sub Grades: "
+        grade_parts = []
+        for phase, grade in sub_grades.items():
+            grade_parts.append(f"{phase}: {grade}")
+
+        sub_grade_text += " | ".join(grade_parts)
+
+        # Update the labels with the sub and final grades
+        self.sub_grade_label.configure(text=sub_grade_text)
+        self.total_grade_label.configure(text=f"Final Grade: {round(final_grade, 2)}")
 
     def close_hist_window(self, event=None):
         """
