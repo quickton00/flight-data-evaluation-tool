@@ -225,7 +225,7 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
 
         axvlines[ax] = sub_axvlines
 
-    plt.subplots_adjust(left=0.04, right=0.99)
+    plt.tight_layout()
 
     return figure, axvlines
 

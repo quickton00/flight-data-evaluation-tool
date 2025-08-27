@@ -78,7 +78,10 @@ def tier_metric(raw_metric, alpha=0.05):
     if is_zero_inflated(metric, alpha) and is_count_metric(metric):
         return "zero-inflated", metric, None, True
 
-    if len(metric) == 0 or is_normal(metric, alpha):
+    if len(metric) == 0 or len(set(metric)) == 1:
+        return "non-normal", raw_metric, None, False
+
+    if is_normal(metric, alpha):
         return "normal", metric, None, False
 
     for method in ["box-cox", "yeo-johnson"]:
@@ -139,7 +142,7 @@ def tier_data(test_row, phase):
     # Filter out optional columns for weight calculation
     required_database = database.drop(columns=optional_columns)
 
-    counter = {"normal": 0, "non-normal": 0, "count-non-normal": 0, "zero-inflated": 0}
+    counter = {"normal": 0, "non-normal": 0, "count-non-normal": 0, "transform-normal": 0, "zero-inflated": 0}
 
     tiered_data = {"Excellent": [], "Good": [], "Normal": [], "Poor": [], "Very Poor": [], "Not Tierable": []}
 
@@ -149,8 +152,6 @@ def tier_data(test_row, phase):
         dist_type, metric, transformer, zero_inflated = tier_metric(database[column])
 
         metrics[column] = metric
-
-        counter[dist_type] += 1
 
         current_value = test_row[column]
 
@@ -168,6 +169,11 @@ def tier_data(test_row, phase):
         if column in optional_columns:
             tiered_data["Not Tierable"].append(data_obj)
             continue
+
+        if not transformer:
+            counter[dist_type] += 1
+        else:
+            counter["transform-normal"] += 1
 
         if dist_type == "normal" and not zero_inflated:
 
@@ -211,7 +217,7 @@ def tier_data(test_row, phase):
             data_obj[column]["Percentile"] = percentile
 
         else:
-            raise ValueError("Invalid distribution type. Use 'normal', 'non-normal' or 'count-non-normal'.")
+            raise ValueError("Invalid distribution type. Use 'normal', 'non-normal'.")
 
         if current_value <= tier_borders[0]:
             tiered_data["Excellent"].append(data_obj)

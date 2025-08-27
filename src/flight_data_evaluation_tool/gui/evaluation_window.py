@@ -215,7 +215,7 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         }
 
         for phase in sub_grades:
-            # calculate the weights of the evaluation metrics for this phas
+            # calculate the weights of the evaluation metrics for this phase
             weights = calculate_phase_weights(total_metric_database[phase])
 
             for evaluation_tier in tier_factors:
@@ -391,7 +391,7 @@ class HistWindow(customtkinter.CTkToplevel):
         ax.axvline(current_value, color="#8A2BE2", linestyle="-", lw=2, label=f"Value{transformed_label}")
 
         # Plot PDF
-        if len(data) > 1:
+        if len(data) > 1 and len(set(data)) > 1:  # Check for variance in data
             kde = gaussian_kde(data)
             if not borders or min(data) < borders[0]:
                 x_min = min(data)
