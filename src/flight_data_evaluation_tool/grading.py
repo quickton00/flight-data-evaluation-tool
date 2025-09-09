@@ -237,9 +237,11 @@ def tier_data(test_row, phase):
     if phase == "Alignment Phase" and COMPARISON:
         # Export weighting comparison for Alignment Phase
         # Prepare types and alternative names (customize as needed)
-        types = np.ones(len(database.columns), dtype=int)  # Create array of 1s
+        types = np.ones(len(required_database.columns), dtype=int)  # Create array of 1s
 
-        compare_weighting_methods_and_rank(database, types, filename="alignment_phase_weighting_comparison.xlsx")
+        compare_weighting_methods_and_rank(
+            required_database, types, filename="alignment_phase_weighting_comparison.xlsx"
+        )
 
     return tiered_data, metrics, required_database
 
