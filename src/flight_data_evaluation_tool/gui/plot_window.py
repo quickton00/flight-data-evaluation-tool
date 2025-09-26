@@ -25,6 +25,62 @@ from gui.evaluation_window import EvaluationWindow
 from gui.heatmap_window import HeatMapWindow
 
 
+class ToolTip:
+    """
+    Create a tooltip for a given widget.
+    """
+
+    def __init__(self, widget, text="widget info"):
+        self.widget = widget
+        self.text = text
+        self.widget.bind("<Enter>", self.enter)
+        self.widget.bind("<Leave>", self.leave)
+        self.tooltip_window = None
+
+    def enter(self, event=None):
+        # Get widget position
+        widget_x = self.widget.winfo_rootx()
+        widget_y = self.widget.winfo_rooty()
+        widget_height = self.widget.winfo_height()
+
+        # Create tooltip window first to measure its size
+        self.tooltip_window = tw = customtkinter.CTkToplevel(self.widget)
+        tw.wm_overrideredirect(True)
+
+        label = customtkinter.CTkLabel(
+            tw,
+            text=self.text,
+            fg_color="#333333",
+            text_color="white",
+            corner_radius=8,
+            padx=10,
+            pady=5,
+            wraplength=300,
+            justify="left",
+        )
+        label.pack()
+
+        # Update the window to get actual size
+        tw.update_idletasks()
+        tooltip_width = tw.winfo_reqwidth()
+
+        # Position tooltip: left edge aligned with left edge of widget, below the widget
+        x = widget_x - tooltip_width
+        y = widget_y + widget_height + 5
+
+        # Make sure tooltip doesn't go off the left edge of screen
+        if x < 0:
+            x = 10
+
+        # Set final position
+        tw.wm_geometry(f"+{x}+{y}")
+
+    def leave(self, event=None):
+        if self.tooltip_window:
+            self.tooltip_window.destroy()
+            self.tooltip_window = None
+
+
 class PlotWindow(customtkinter.CTkToplevel):
     """
     A window for displaying plots of flight data.
@@ -138,7 +194,7 @@ class PlotWindow(customtkinter.CTkToplevel):
                 add_to_database_button = customtkinter.CTkButton(
                     master=self, text="Add flight to database", command=self.add_to_database_button_event
                 )
-                add_to_database_button.grid(row=0, column=3, sticky="s", padx=5, pady=5)
+                add_to_database_button.grid(row=0, column=2, sticky="n", padx=5, pady=5)
         else:
             self.switch_var = customtkinter.StringVar(value="on")
             phases_switch = customtkinter.CTkSwitch(
@@ -161,6 +217,46 @@ class PlotWindow(customtkinter.CTkToplevel):
             master=self, text="Show Heatmaps for Flight Phases", command=self.heatmap_button_event
         )
         heatmap_button.grid(row=5, column=0, padx=15, pady=15, sticky="s")
+
+        # Add help button with question mark
+        help_button = customtkinter.CTkButton(
+            master=self,
+            text="?",
+            width=30,
+            height=30,
+            corner_radius=15,
+            font=customtkinter.CTkFont(weight="bold"),
+        )
+        help_button.grid(row=0, column=3, sticky="e", padx=5, pady=5)
+
+        # Add tooltip to help button
+        help_text = """Flight Data Evaluation Tool Help:
+
+• Use sliders to adjust phase timestamps
+• Arrow keys (keyboard) can control last clicked slider for finer adjustments
+• Phase lines show flight phase boundaries
+• 'Evaluate Flight Phases' calculates performance metrics
+• 'Show Heatmaps' displays lateral flight path
+• 'Save Plots individually' exports each plot separately as PNG
+
+Error Detection Criteria (Red Dots):
+
+Translation x-Axis:
+• Acceleration above Ideal Approach Velocity towards the station
+• Further Acceleration despite being already above Ideal Approach Velocity towards the station
+• Acceleration away from the station
+
+Translation y/z-Axis:
+• Leaving zero positional offset with maneuver
+• Increasing positional offset with maneuver in positive direction; exclude breaking maneuvers; initial offset NOT zero
+• Increasing positional offset with maneuver in negative direction; exclude breaking maneuvers; initial offset NOT zero
+
+Rotation x/y/z-Axis:
+• Leaving zero positional offset with maneuver
+• Increasing positional offset with maneuver in positive direction; initial offset NOT zero
+• Increasing positional offset with maneuver in negative direction; exclude breaking maneuvers; initial offset NOT zero"""
+
+        ToolTip(help_button, help_text)
 
         # create execution info box
         self.execution_info = customtkinter.CTkLabel(
