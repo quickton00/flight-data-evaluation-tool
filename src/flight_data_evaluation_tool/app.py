@@ -5,6 +5,12 @@ import os
 import sys
 from contextlib import contextmanager
 
+if getattr(sys, "frozen", False):
+    # Running in PyInstaller bundle
+    bundle_dir = sys._MEIPASS
+    src_dir = os.path.join(bundle_dir)
+    sys.path.insert(0, src_dir)
+
 # Assure functionality of relative imports in development environment and standalone execution
 try:
     import flight_data_evaluation_tool.globals as globals

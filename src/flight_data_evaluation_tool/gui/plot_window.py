@@ -9,6 +9,15 @@ from matplotlib.transforms import Bbox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 
+# if getattr(sys, "frozen", False):
+#     bundle_dir = sys._MEIPASS
+#     sys.path.insert(0, bundle_dir)
+
+try:
+    import globals
+except ImportError:
+    from .. import globals
+
 import globals
 from plot import create_figure
 from evaluation import evaluate_flight_phases, calculate_phase_evaluation_values
