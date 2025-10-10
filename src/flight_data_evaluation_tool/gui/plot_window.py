@@ -451,9 +451,20 @@ Rotation x/y/z-Axis:
             self.after(10, self.focus_force)
             return
 
-        if not os.path.exists(
-            f"src/flight_data_evaluation_tool/database/{self.master.results['Scenario'][0]}_flight_data.json"
-        ):
+        # Check if running as a PyInstaller bundle
+        if getattr(sys, "frozen", False):
+            # Running in a PyInstaller bundle
+            bundle_dir = sys._MEIPASS
+            database_path = os.path.join(
+                bundle_dir, "database", f"{self.master.results['Scenario'][0]}_flight_data.json"
+            )
+        else:
+            # Running in a normal Python environment
+            database_path = (
+                f"src/flight_data_evaluation_tool/database/{self.master.results['Scenario'][0]}_flight_data.json"
+            )
+
+        if not os.path.exists(database_path):
             messagebox.showerror(
                 "Data Error",
                 f"For Flight scenario {self.master.results['Scenario'][0]} no data exists in the database.",

@@ -3,13 +3,16 @@ import numpy as np
 import json
 import os
 import sys
-import pylab
 import scipy.stats as stats
 from scipy.stats import chi2
 from scipy.stats import shapiro, normaltest, anderson
 from sklearn.preprocessing import PowerTransformer, QuantileTransformer
 from crispyn import weighting_methods as mcda_weights
-from helper.thesis import compare_weighting_methods_and_rank
+
+try:
+    from helper.thesis import compare_weighting_methods_and_rank
+except ImportError:
+    pass
 
 
 def is_normal(data, alpha=0.05):
@@ -105,6 +108,16 @@ def tier_metric(raw_metric, alpha=0.05):
     return "non-normal", raw_metric, None, False
 
 
+def _resource_path(*relative_parts):
+    """Return absolute path for bundled (PyInstaller) and dev runs."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base_dir = sys._MEIPASS
+    else:
+        # folder where grading.py lives
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, *relative_parts)
+
+
 def tier_data(test_row, phase):
     phase_filter = {
         "Alignment Phase": "Appr|FA|Total|Dock",
@@ -115,7 +128,16 @@ def tier_data(test_row, phase):
 
     regex_filter = f"{phase_filter}|Flight ID|Date|Scenario|Manually modified Phases"
 
-    json_file_path = f"src/flight_data_evaluation_tool/database/{test_row["Scenario"]}_flight_data.json"
+    # Use resource path instead of hardcoded src/...
+    json_file_path = _resource_path("database", f"{test_row['Scenario']}_flight_data.json")
+
+    if not os.path.exists(json_file_path):
+        # Optional: second chance for legacy names or alt locations
+        alt_path = _resource_path("database", f"{test_row['Scenario']}.json")
+        if os.path.exists(alt_path):
+            json_file_path = alt_path
+        else:
+            raise FileNotFoundError(f"Database file not found: {json_file_path}")
 
     # Load database
     database = pd.read_json(json_file_path, orient="records", lines=True, convert_dates=False)
@@ -195,10 +217,6 @@ def tier_data(test_row, phase):
                 metrics[column] = metric
 
         elif dist_type == "non-normal" or dist_type == "count-non-normal" or zero_inflated:
-            # visual inspection via Q-Q plot
-            # stats.probplot(metric, dist="norm", plot=pylab)
-            # pylab.show()
-
             sorted_metric = metric.sort_values(ignore_index=True)
 
             try:
@@ -229,8 +247,6 @@ def tier_data(test_row, phase):
             tiered_data["Poor"].append(data_obj)
         else:
             tiered_data["Very Poor"].append(data_obj)
-
-    # print(counter)
 
     COMPARISON = False
 

@@ -14,7 +14,7 @@ pip install pyinstaller
 cd .\src\flight_data_evaluation_tool\
 
 3. Build .exe:
-pyinstaller --onefile --windowed --icon=icon.ico --add-data "icon.ico;." --add-data "results_template.json;." --add-data "database/*.json;database" app.py --name "Flight Data Evaluation Tool"
+pyinstaller '.\Flight Data Evaluation Tool.spec'
 
 Note:
 To better debug the application DON'T use --windowed to get prints in a terminal.
