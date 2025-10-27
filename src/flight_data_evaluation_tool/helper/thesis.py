@@ -100,7 +100,7 @@ def create_ideal_distribution_image(filename="normal_distribution_tiers.png", ou
         ax.axvline(border, color="black", linestyle="--", lw=1)
 
     # Add labels and title
-    ax.set_title("Ideal Parameter Distribution with Tier Borders")
+    ax.set_title("Ideal Metric Distribution with Tier Borders")
     # Set custom ticks for x-axis
     ticks = [-2, -1, 0, 1, 2]
     labels = [
