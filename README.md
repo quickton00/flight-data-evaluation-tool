@@ -3,6 +3,45 @@
 The Flight Data Evaluation Tool is a Python package that provides a GUI for the evaluation of flight data.
 It is developed for TUM internal usage at the Chair for Human Spaceflight Technology.
 
+## Quick Start (VS Code on Windows)
+
+Prerequisites:
+- Python 3.8–3.11 installed (Windows recommended)
+- VS Code + “Python” extension
+
+1) Clone and open in VS Code
+```powershell
+git clone https://github.com/quickton00/flight-data-evaluation-tool.git
+cd flight-data-evaluation-tool
+code .
+```
+
+2) Create and activate a virtual environment
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+# If activation is blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+3) Install dependencies
+```powershell
+python -m pip install -U pip
+pip install -r requirements.txt
+```
+
+4) Select the interpreter in VS Code
+- Ctrl+Shift+P → “Python: Select Interpreter” → choose .venv\Scripts\python.exe
+
+5) Run the app
+- Terminal:
+```powershell
+python .\src\flight_data_evaluation_tool\app.py
+```
+
+Troubleshooting:
+- PowerShell activation: use .\.venv\Scripts\Activate.ps1 (CMD: .\.venv\Scripts\activate.bat)
+- VS Code auto-activation: after selecting interpreter, open a new terminal
+
 ## How to package the code using pyinstaller
 
 1. Install pyinstaller:
@@ -18,6 +57,18 @@ pyinstaller '.\Flight Data Evaluation Tool.spec'
 
 Note:
 To better debug the application DON'T use --windowed to get prints in a terminal.
+
+## Create requirements.txt
+
+1. install pipreqs
+
+pip install pipreqs
+
+2. Navigate to the folder where requirements.txt is located
+
+2. Build requirements.txt
+
+pipreqs . --force --savepath requirements.txt --ignore tests,.git,.venv
 
 ## Project Organization
 

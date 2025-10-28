@@ -705,8 +705,12 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
             + filtered_flight_data[f"{controller}.z"] ** 2
         )
 
-        # Calculate PSD using Welch's method for better frequency resolution
-        _, psd = signal.welch(combined_signal, fs=fs, nperseg=min(256, len(combined_signal) // 4))
+        # Ensure NumPy array to avoid pandas tuple-indexing issues in SciPy
+        _, psd = signal.welch(
+            np.asarray(combined_signal, dtype=float),
+            fs=fs,
+            nperseg=min(256, len(combined_signal) // 4),
+        )
         # Take mean of PSD values (excluding DC component)
         results[f"{controller}PSD_{phase}"] = np.mean(psd[1:]) if len(psd) > 1 else np.mean(psd)
 
