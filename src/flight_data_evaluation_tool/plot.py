@@ -3,6 +3,53 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
+# Responsive styling helpers
+def _compute_scale(fig, base_px=1600):
+    w, h = fig.get_size_inches()
+    px_w = 2 * h * fig.get_dpi()
+    # Clamp scale to reasonable bounds
+    return max(0.75, min(1.6, px_w / base_px))
+
+
+def _apply_responsive_styling(fig):
+    scale = _compute_scale(fig)
+    sizes = {
+        "title": int(10 * scale),
+        "label": int(9 * scale),
+        "tick": int(7 * scale),
+        "legend": int(7 * scale),
+    }
+    for ax in fig.axes:
+        # Titles and labels
+        ax.set_title(ax.get_title(), fontsize=sizes["title"], pad=4, wrap=True)
+        ax.xaxis.label.set_size(sizes["label"])
+        ax.yaxis.label.set_size(sizes["label"])
+        ax.xaxis.labelpad = 2
+        ax.yaxis.labelpad = 2
+
+        # Ticks
+        ax.tick_params(axis="both", labelsize=sizes["tick"])
+
+        # Legends
+        leg = ax.get_legend()
+        if leg:
+            leg.set_title(None)
+            for text in leg.get_texts():
+                text.set_fontsize(sizes["legend"])
+
+    # Let layout engine resolve remaining overlaps
+    fig.canvas.draw_idle()
+
+
+def _attach_resize_listener(fig):
+    def _on_resize(event):
+        _apply_responsive_styling(event.canvas.figure)
+
+    # Listen to resize events
+    if fig.canvas is not None:
+        fig.canvas.mpl_connect("resize_event", _on_resize)
+
+
 def _plot_values(
     ax,
     flight_data: pd.DataFrame,
@@ -130,8 +177,9 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
     tuple: A tuple containing the created figure and a dictionary of vertical lines for each subplot.
     """
     mpl.style.use("fast")
-
-    figure = plt.figure(figsize=(24, 12))  # Set figure size (width, height)
+    # Use constrained layout to reduce overlaps
+    figure = plt.figure(figsize=(24, 12))
+    figure.set_constrained_layout(True)
 
     plots = {
         "Translational Offset to Port-Station": [
@@ -225,7 +273,9 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
 
         axvlines[ax] = sub_axvlines
 
-    plt.tight_layout()
+    # Apply responsive fonts now and on future resizes
+    _apply_responsive_styling(figure)
+    _attach_resize_listener(figure)
 
     return figure, axvlines
 
@@ -247,7 +297,7 @@ def create_heatmaps(flight_data: pd.DataFrame, phases: list):
     mpl.rcParams["path.simplify"] = True
     mpl.rcParams["path.simplify_threshold"] = 1.0
 
-    figure = plt.figure(figsize=(12, 12))  # Set figure size (width, height)
+    figure = plt.figure(figsize=(12, 12))
 
     titles = ["Alignment Phase", "Approach Phase", "Final Approach", "Total Flight"]
 
@@ -353,5 +403,9 @@ def create_heatmaps(flight_data: pd.DataFrame, phases: list):
         ax.set_ylabel("Trans. Offset Y", loc="bottom")
 
         ax.set_aspect("equal")
+
+    # Apply responsive fonts now and on future resizes
+    _apply_responsive_styling(figure)
+    _attach_resize_listener(figure)
 
     return figure

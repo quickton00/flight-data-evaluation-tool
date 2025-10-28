@@ -515,25 +515,33 @@ Rotation x/y/z-Axis:
         if not save_dir:
             return
 
+        # Ensure renderer is up-to-date to compute tight bounding boxes correctly
+        self.canvas.draw()
+        renderer = self.canvas.get_renderer()
+
+        # Small whitespace around each side of the axes
+        margin = 0.1
+
         for ax in self.figure.axes:
-            extent = ax.get_window_extent().transformed(self.figure.dpi_scale_trans.inverted())
+            # Tight bbox of the current axes
+            extent = ax.get_tightbbox(renderer).transformed(self.figure.dpi_scale_trans.inverted())
 
-            # Manually adjust the extent to add extra space to the left and bottom
-            xmin, ymin, xmax, ymax = extent.extents
-            xmin -= 0.8  # left
-            xmax += 0.05  # right
-            ymin -= 0.5  # bottom
-            ymax += 0.05  # top
-
-            # Create a new extent with the adjusted coordinates
-            extent = Bbox([[xmin, ymin], [xmax, ymax]])
-
-            title = ax.get_title()
-            self.figure.savefig(os.path.join(save_dir, f"{title}.png"), bbox_inches=extent, dpi=400)
-
-            self.execution_info.configure(
-                text=f"Plots individually saved as 'png' under {save_dir}.", fg_color="#00ab41"
+            # Add a little whitespace around each side
+            padded_extent = Bbox.from_extents(
+                extent.x0 - margin,
+                extent.y0 - margin,
+                extent.x1 + margin,
+                extent.y1 + margin,
             )
+
+            title = ax.get_title() or "plot"
+            self.figure.savefig(
+                os.path.join(save_dir, f"{title}.png"),
+                bbox_inches=padded_extent,
+                dpi=400,
+            )
+
+        self.execution_info.configure(text=f"Plots individually saved as 'png' under {save_dir}.", fg_color="#00ab41")
 
         # lift TopLevelWindow in front
         self.lift()

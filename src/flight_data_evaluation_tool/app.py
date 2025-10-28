@@ -45,6 +45,9 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
     :rtype: list
     """
 
+    NEW_COLOR = "#00ab41"
+    ANALYZED_COLOR = customtkinter.ThemeManager.theme["CTkButton"]["fg_color"]
+
     def __init__(self, master, path_list=None, command=None, **kwargs):
         super().__init__(master, **kwargs)
 
@@ -65,6 +68,8 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
             The path of the file to be added.
         """
         checkbox = customtkinter.CTkCheckBox(self, text=os.path.basename(path))
+        # color newly added items
+        checkbox.configure(text_color=self.NEW_COLOR)
 
         if self.command is not None:
             checkbox.configure(command=self.command)
@@ -91,6 +96,15 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
             A list of file paths for the checked checkboxes.
         """
         return [self.checkbox_dict[checkbox] for checkbox in self.checkbox_dict.keys() if checkbox.get() == 1]
+
+    # mark selected/processed files as analyzed (green)
+    def mark_analyzed(self, paths):
+        path_set = set(paths)
+        for cb, p in self.checkbox_dict.items():
+            if p in path_set:
+                cb.configure(text_color=self.ANALYZED_COLOR)
+            elif cb.cget("text_color") != self.ANALYZED_COLOR:
+                cb.configure(text_color=customtkinter.ThemeManager.theme["CTkCheckBox"]["text_color"])
 
 
 class App(customtkinter.CTk):
@@ -302,6 +316,9 @@ class App(customtkinter.CTk):
                     print("Previously manually adjusted Flight Phases for the selected session used.")
 
             self.toplevel_window = PlotWindow(self, phases)
+
+            # mark evaluated files as analyzed (green)
+            self.scrollable_checkbox_frame.mark_analyzed(flight_logs)
 
             current_text = self.execution_info.cget("text")
             if "BACKUP" in current_text:
