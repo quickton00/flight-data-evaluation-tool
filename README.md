@@ -48,12 +48,12 @@ Troubleshooting:
 
 pip install pyinstaller
 
-2. Navigate to the folder where gui.py is located, e.g.:
+2. Navigate to the folder where app.py is located, e.g.:
 
 cd .\src\flight_data_evaluation_tool\
 
 3. Build .exe:
-pyinstaller '.\Flight Data Evaluation Tool.spec'
+pyinstaller --clean '.\Flight Data Evaluation Tool.spec'
 
 Note:
 To better debug the application DON'T use --windowed to get prints in a terminal.

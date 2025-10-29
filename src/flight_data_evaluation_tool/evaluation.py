@@ -1,3 +1,11 @@
+"""
+Flight phase evaluation and metrics calculation module.
+
+This module provides comprehensive functionality for evaluating flight performance
+across different phases (Alignment, Approach, Final Approach). It calculates a wide
+range of metrics including controller usage, errors, fuel consumption, trajectorydeviation, and performance indicators like workload and aggressiveness.
+"""
+
 # methods to create the data points for evaluation
 
 import os
@@ -10,12 +18,16 @@ from scipy import signal
 
 def create_dataframe_template_from_json(template_file=r"src\flight_data_evaluation_tool\results_template.json"):
     """
-    Creates a pandas DataFrame template based on the structure defined in a json file.
-    Args:
-        template_file (str): Path to the json file containing the DataFrame template configuration.
-                         Defaults to "src\\flight_data_evaluation_tool\\results_template.json".
-    Returns:
-        pd.DataFrame: An empty DataFrame with columns and data types defined in the json file.
+    Create an empty pandas DataFrame template from a JSON configuration file.
+
+    This function loads a JSON template that defines the structure of the results
+    DataFrame, including column names and data types for flight evaluation metrics.
+
+    :param template_file: Path to the JSON template file, defaults to
+                         'src\\flight_data_evaluation_tool\\results_template.json'.
+    :type template_file: str, optional
+    :return: Empty DataFrame with columns defined in the JSON template.
+    :rtype: pd.DataFrame
     """
     if getattr(sys, "frozen", False):  # Check if running in a PyInstaller bundle
         template_file = sys._MEIPASS  # type: ignore
@@ -37,24 +49,34 @@ def start_stop_condition_evaluation(
     flight_data, start_condition, stop_condition, start_index, stop_index, flight_phase_timestamps, controller=""
 ):
     """
-    Evaluates the start and stop conditions for flight data and returns the corresponding timestamps.
-    The calculated timestamps are used to determine the length between two corresponding conditions.
-    Parameters:
-    flight_data (DataFrame): A data frame containing the flight data.
-    start_condition (str): The condition to determine the start of the steering.
-    stop_condition (str): The condition to determine the stop of the steering.
-    start_index (int): The index in flight_phase_timestamps to use if start timestamps of flight phases are missing.
-    stop_index (int): The index in flight_phase_timestamps to use if stop timestamps of flight phases are missing.
-    flight_phase_timestamps (list): A list of timestamps of the flight phases.
-    controller (str, optional): The name of the controller for logging purposes. Defaults to "".
-    Returns:
-    tuple: A tuple containing two lists:
-        - start_steering_timestamps (list): Timestamps where steering starts.
-        - stop_steering_timestamps (list): Timestamps where steering stops.
-    Notes:
-    - If the number of start timestamps is less than the number of stop timestamps, the start timestamp list is corrected by inserting a timestamp from flight_phase_timestamps.
-    - If the number of start timestamps is greater than the number of stop timestamps, the stop timestamp list is corrected by appending a timestamp from flight_phase_timestamps.
-    - If the number of start and stop timestamps still do not match, backup values for stop timestamps are calculated.
+    Evaluate start and stop conditions for controller input periods during flight.
+
+    This function identifies timestamps where specific flight conditions begin and end,
+    which is useful for calculating durations of various flight behaviors (e.g., time
+    spent out of corridor, time with controller input, etc.).
+
+    :param flight_data: DataFrame containing the complete flight data with all metrics.
+    :type flight_data: pandas.DataFrame
+    :param start_condition: Boolean Series indicating where the condition starts (True values).
+    :type start_condition: pandas.Series
+    :param stop_condition: Boolean Series indicating where the condition stops (True values).
+    :type stop_condition: pandas.Series
+    :param start_index: Index in flight_phase_timestamps for the phase start time.
+    :type start_index: int
+    :param stop_index: Index in flight_phase_timestamps for the phase end time.
+    :type stop_index: int
+    :param flight_phase_timestamps: List of timestamps marking different flight phases.
+    :type flight_phase_timestamps: list
+    :param controller: Name of the controller for logging purposes, defaults to "".
+    :type controller: str, optional
+    :return: Tuple of two lists: (start_timestamps, stop_timestamps) where each
+            start timestamp is paired with its corresponding stop timestamp.
+    :rtype: tuple(list, list)
+
+    .. note::
+       If the number of start and stop timestamps don't match, the function attempts
+       to correct the mismatch by inserting phase boundary timestamps. If correction
+       fails, backup stop timestamps are calculated using shifted simulation times.
     """
     start_steering_timestamps = []
     stop_steering_timestamps = []
@@ -89,18 +111,24 @@ def start_stop_condition_evaluation(
 
 def export_data(results: pd.DataFrame, flight_data: pd.DataFrame):
     """
-    Exports flight data to a CSV file.
+    Export flight evaluation results to JSON database and raw data to CSV.
 
-    Parameters:
-    flight_data (DataFrame): The flight data to be exported.
-    save_path (str): The file path where the CSV file will be saved.
-    overwrite (bool, optional): Whether to overwrite the existing file. Default is True.
+    This function saves flight results to a JSON lines file (one JSON object per line)
+    and the raw flight data to a CSV file. If a flight with the same ID already exists
+    in the database, it is updated with the new results.
 
-    Returns:
-    None
+    :param results: DataFrame containing calculated flight evaluation metrics.
+    :type results: pd.DataFrame
+    :param flight_data: DataFrame containing the raw flight data timeseries.
+    :type flight_data: pd.DataFrame
+
+    .. note::
+       - Results are stored in: `src/flight_data_evaluation_tool/database/{Scenario}_flight_data.json`
+       - Raw data is stored in: `data/{Scenario}/{Flight_ID}.csv`
+       - Duplicate flights (same Flight ID) are automatically replaced with latest results
+       - Empty columns are automatically removed from the database
+       - Logger Version, Session ID, and Pilot columns are removed before storage
     """
-
-    # TODO disable function and button for exe
 
     json_file_path = f"src/flight_data_evaluation_tool/database/{results["Scenario"][0]}_flight_data.json"
 
@@ -130,29 +158,44 @@ def export_data(results: pd.DataFrame, flight_data: pd.DataFrame):
 
 def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_index, flight_phase_timestamps, results):
     """
-    Calculate various evaluation metrics for a specific flight phase or the total flight.
-    Parameters:
-    -----------
-    flight_data : pandas.DataFrame
-        DataFrame containing flight data with columns such as "SimTime", "Lateral Offset", "Approach Cone",
-        "Tank mass [kg]", "Angle to Port", "THC.x", "THC.y", "THC.z", "RHC.x", "RHC.y", "RHC.z", "COG Vel.x [m]",
-        "Ideal Approach Vel", "COG Pos.x [m]", "COG Pos.y [m]", "COG Pos.z [m]", "Rot Angle.x [deg]",
-        "Rot Angle.y [deg]", "Rot Angle.z [deg]", "Rot. Rate.x [deg/s]", "Rot. Rate.y [deg/s]", "Rot. Rate.z [deg/s]".
-    phase : str
-        The flight phase for which the evaluation metrics are being calculated.
-    start_index : int
-        The index in flight_phase_timestamps indicating the start of the phase.
-    stop_index : int
-        The index in flight_phase_timestamps indicating the end of the phase.
-    flight_phase_timestamps : list
-        List of timestamps corresponding to different phases of the flight.
-    results : pandas.DataFrame
-        DataFrame to store the calculated evaluation metrics.
-    Returns:
-    --------
-    total_flight_errors : dict
-        Dictionary containing lists of timestamps where errors occurred for the "Total" phase. Keys are
-        "{controller}.{coordinate}" and values are lists of timestamps.
+    Calculate comprehensive evaluation metrics for a specific flight phase.
+
+    This is the core evaluation function that calculates numerous performance metrics
+    including controller usage patterns, errors, fuel consumption, trajectory deviations,
+    and advanced metrics like aggressiveness, duty cycle, and workload.
+
+    :param flight_data: DataFrame containing complete flight data with all sensor readings
+                       and calculated values.
+    :type flight_data: pandas.DataFrame
+    :param phase: Phase identifier - one of 'Align', 'Appr', 'FA' (Final Approach),
+                 or 'Total'.
+    :type phase: str
+    :param start_index: Index in flight_phase_timestamps marking the phase start.
+    :type start_index: int
+    :param stop_index: Index in flight_phase_timestamps marking the phase end.
+    :type stop_index: int
+    :param flight_phase_timestamps: List of timestamps for each phase boundary.
+    :type flight_phase_timestamps: list
+    :param results: DataFrame to store calculated metrics (modified in-place).
+    :type results: pandas.DataFrame
+    :return: For 'Total' phase: dictionary mapping controller axes to lists of error
+            timestamps for visualization. For other phases: None.
+    :rtype: dict or None
+
+    **Calculated Metrics Include:**
+
+    - **Duration metrics**: Phase start times and durations
+    - **Corridor violations**: Time spent outside approach cone
+    - **Velocity exceedances**: Time above ideal closing velocity
+    - **Fuel consumption**: Total and error-specific fuel usage
+    - **Controller usage**: Number of inputs, average input duration
+    - **Error detection**: Inappropriate controller inputs that worsen flight state
+    - **Combined inputs**: Simultaneous translational and rotational inputs
+    - **Frequency metrics**: Power spectral density of controller inputs
+    - **Aggressiveness**: Rate of change in controller inputs
+    - **Duty cycle**: Frequency of significant controller changes
+    - **Workload**: Combined metric of aggressiveness and duty cycle
+    - **Statistical summaries**: Mean and RMS values for key trajectory parameters
     """
     total_flight_errors = {}
 
@@ -819,15 +862,29 @@ def calculate_phase_evaluation_values(flight_data, phase, start_index, stop_inde
 
 def evaluate_flight_phases(flight_data, flight_phase_timestamps, results, export=True):
     """
-    Evaluates different phases of a flight based on provided flight data and timestamps, and updates the results dictionary.
-    Args:
-        flight_data (DataFrame): The flight data containing various parameters recorded during the flight.
-        flight_phase_timestamps (list): A list of timestamps indicating the start and end of different flight phases.
-        results (dict): A dictionary to store the evaluation results.
-        save_dir (str): The directory where the evaluation results will be saved.
-        overwrite (bool, optional): Flag indicating whether to overwrite existing results file. Defaults to True.
-    Returns:
-        None
+    Evaluate all flight phases and optionally export results to database.
+
+    This is the main entry point for flight evaluation. It processes all four
+    phases (Alignment, Approach, Final Approach, and Total Flight), calculates
+    comprehensive metrics for each, and optionally exports the results.
+
+    :param flight_data: DataFrame containing the complete flight data timeseries.
+    :type flight_data: pandas.DataFrame
+    :param flight_phase_timestamps: List of four timestamps marking phase boundaries:
+                                   [alignment_start, approach_start, final_approach_start, docking_time]
+    :type flight_phase_timestamps: list
+    :param results: DataFrame template to store evaluation results.
+    :type results: pandas.DataFrame
+    :param export: If True, export results to JSON database and CSV files.
+                  If False, return results as dictionary, defaults to True.
+    :type export: bool, optional
+    :return: If export=False, returns dictionary of evaluation results.
+            If export=True, returns None (results are saved to files).
+    :rtype: dict or None
+
+    .. note::
+       Results are automatically exported to the database unless export=False.
+       This allows the flight to be used for future performance comparisons.
     """
     start_index = 0
     stop_index = 1

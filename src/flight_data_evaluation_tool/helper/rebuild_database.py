@@ -1,5 +1,13 @@
-# helper function to recalculate the database when implementation of evaluation parameters changes
-# for development purposes only
+"""
+Database rebuilding utility for development purposes.
+
+This module provides functionality to recalculate and update the flight database
+when evaluation metric implementations change. It re-processes all flight data
+files and updates the JSON database with newly calculated metrics.
+
+.. warning::
+   This is a development-only tool. Do not run in production without backup.
+"""
 
 import os
 import sys
@@ -12,20 +20,37 @@ from flight_data_evaluation_tool.evaluation import evaluate_flight_phases
 
 def rebuild_database(database_path=r"data"):
     """
-    Rebuilds the flight database by processing and evaluating flight data against predefined templates.
-    This function reads flight data from a JSON file and compares it against a YAML template,
-    ensuring all required columns are present. It then processes each flight data CSV file in
-    the specified database directory, matching it with the corresponding JSON data using the
-    flight ID, and evaluates flight phases.
-    Args:
-        database_path (str, optional): Path to the directory containing flight data CSV files.
-            Defaults to "data".
-    Notes:
-        - The function reads flight data from 'flight_data.json' and configuration from 'results_template.yaml'
-        - Missing columns from the YAML template are added to the data with None values
-        - Columns not specified in the YAML template are removed from the data
-        - Each CSV file in the database directory is processed and evaluated using the evaluate_flight_phases function
-        - Flight phases are extracted from the results data for evaluation
+    Rebuild the flight database by re-evaluating all stored flight data.
+
+    This function iterates through all CSV flight data files in the database,
+    re-calculates their evaluation metrics using the current implementation,
+    and updates the corresponding JSON database files. Useful when metric
+    calculation logic changes and historical data needs to be updated.
+
+    :param database_path: Path to the directory containing scenario subdirectories
+                         with flight data CSV files, defaults to 'data'.
+    :type database_path: str, optional
+
+    **Process:**
+
+    1. Loads the results template to ensure all columns are present
+    2. Iterates through each scenario's JSON database file
+    3. For each flight in the scenario:
+
+       - Loads the corresponding CSV flight data
+       - Extracts phase timestamps from existing results
+       - Re-evaluates the flight using current metric implementations
+       - Updates the JSON database
+
+    4. Handles errors gracefully, printing error messages and continuing
+
+    .. warning::
+       This operation modifies the flight database. Ensure you have backups before
+       running. The function will skip any flights that cause errors during evaluation.
+
+    .. note::
+       The function automatically adds missing columns from the template and removes
+       columns not in the template, ensuring database consistency.
     """
 
     # json_file_path = "src/flight_data_evaluation_tool/flight_data.json"

@@ -1,3 +1,12 @@
+"""
+Evaluation results display window module.
+
+This module provides the GUI window for displaying detailed flight evaluation
+results organized by flight phase and performance tier. It includes interactive
+features like hover-triggered histograms showing metric distributions and
+grade calculation functionality.
+"""
+
 import os
 import json
 import sys
@@ -16,6 +25,40 @@ from gui.CTKcustom import PhasesTabView
 
 
 class EvaluationWindow(customtkinter.CTkToplevel):
+    """
+    Window for displaying comprehensive flight evaluation results.
+
+    This top-level window organizes evaluation metrics by flight phase (Alignment,
+    Approach, Final Approach, Total Flight) and performance tier (Excellent, Good,
+    Normal, Poor, Very Poor, Not Tierable). It provides interactive features including
+    hover-triggered probability density functions and grade calculation.
+
+    :param master: The parent window.
+    :type master: tkinter.Widget
+    :param evaluated_results: Dictionary containing all evaluated flight metrics.
+    :type evaluated_results: dict
+    :param args: Additional positional arguments passed to CTkToplevel.
+    :type args: tuple
+    :param kwargs: Additional keyword arguments passed to CTkToplevel.
+    :type kwargs: dict
+
+    :ivar hist_window: Reference to the currently displayed histogram window, if any.
+    :vartype hist_window: HistWindow or None
+    :ivar metrics: Nested dictionary of metric data organized by phase and metric name.
+    :vartype metrics: dict
+    :ivar dataobjs: Nested dictionary of data objects for each metric by phase.
+    :vartype dataobjs: dict
+    :ivar sub_grade_label: Label displaying individual phase sub-grades.
+    :vartype sub_grade_label: customtkinter.CTkLabel
+    :ivar total_grade_label: Label displaying the final calculated grade.
+    :vartype total_grade_label: customtkinter.CTkLabel
+    :ivar calculate_grade_button: Button to trigger grade calculation (hidden by default).
+    :vartype calculate_grade_button: customtkinter.CTkButton
+
+    .. note::
+       The grade calculation button is hidden by default and can be revealed
+       using the Shift+G keyboard shortcut or by unlocking with a password.
+    """
     def __init__(self, master, evaluated_results, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -176,6 +219,15 @@ class EvaluationWindow(customtkinter.CTkToplevel):
             self.after(200, lambda: self.iconbitmap(globals.icon_path))
 
     def show_grading_button(self, event=None):
+        """
+        Show the grade calculation button (keyboard shortcut handler).
+
+        This method is bound to the Shift+G keyboard shortcut and reveals the
+        grade calculation button if it's not already visible.
+
+        :param event: The keyboard event that triggered this method, defaults to None.
+        :type event: tkinter.Event, optional
+        """
         if globals.grading_unlocked:
             return
 
@@ -242,7 +294,10 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
     def close_hist_window(self, event=None):
         """
-        Close the histogram window if it exists.
+        Close the currently displayed histogram window if it exists.
+
+        :param event: Optional event parameter, defaults to None.
+        :type event: tkinter.Event, optional
         """
         if self.hist_window is not None and self.hist_window.winfo_exists():
             self.hist_window.destroy()
@@ -250,7 +305,20 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
     def show_hist_window(self, metric, tab):
         """
-        Display a histogram window for the given metric and tab.
+        Display a histogram window showing the metric's distribution.
+
+        Creates and displays a new HistWindow showing the probability density
+        function for the specified metric, with tier boundaries and the current
+        flight's value marked.
+
+        :param metric: Name of the metric to display.
+        :type metric: str
+        :param tab: Name of the flight phase tab (e.g., 'Alignment Phase').
+        :type tab: str
+
+        .. note::
+           Any existing histogram window is automatically closed before creating
+           a new one.
         """
         # Close any existing window
         self.close_hist_window()
@@ -347,6 +415,31 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
 
 class HistWindow(customtkinter.CTkToplevel):
+    """
+    Popup window displaying a metric's probability density function (PDF).
+
+    This window shows the distribution of a flight metric across all historical
+    flights, with tier boundaries marked and the current flight's value highlighted.
+    The PDF is color-coded by performance tier for easy visual interpretation.
+
+    :param master: The parent EvaluationWindow.
+    :type master: EvaluationWindow
+    :param data: Historical data for the metric across all flights.
+    :type data: array-like
+    :param metric: Name of the metric being displayed.
+    :type metric: str
+    :param tab: Name of the flight phase.
+    :type tab: str
+    :param borders: List of four tier boundary values.
+    :type borders: list of float
+    :param on_close_callback: Optional callback function when window closes, defaults to None.
+    :type on_close_callback: callable, optional
+
+    .. note::
+       The window automatically positions itself near the mouse cursor with a small
+       offset to avoid blocking the cursor. It includes color-coded regions for each
+       performance tier (Excellent, Good, Normal, Poor, Very Poor).
+    """
     def __init__(self, master, data, metric, tab, borders, on_close_callback=None):
         super().__init__(master)
         self.master = master

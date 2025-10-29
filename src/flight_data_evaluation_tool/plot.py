@@ -1,3 +1,12 @@
+"""
+Flight data visualization and plotting module.
+
+This module provides functions for creating matplotlib figures and heatmaps
+from flight data, with responsive styling and interactive features. It includes
+utilities for plotting time-series data, creating heatmaps of flight phases,
+and applying dynamic styling based on figure size.
+"""
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -5,6 +14,16 @@ import pandas as pd
 
 # Responsive styling helpers
 def _compute_scale(fig, base_px=1600):
+    """
+    Compute a scaling factor for responsive font sizing based on figure dimensions.
+
+    :param fig: The matplotlib figure object to compute scale for.
+    :type fig: matplotlib.figure.Figure
+    :param base_px: Base pixel width for scale calculation, defaults to 1600.
+    :type base_px: int, optional
+    :return: Scaling factor clamped between 0.75 and 1.6.
+    :rtype: float
+    """
     w, h = fig.get_size_inches()
     px_w = 2 * h * fig.get_dpi()
     # Clamp scale to reasonable bounds
@@ -12,6 +31,19 @@ def _compute_scale(fig, base_px=1600):
 
 
 def _apply_responsive_styling(fig):
+    """
+    Apply responsive font sizing to all elements of a matplotlib figure.
+
+    This function adjusts title, label, tick, and legend font sizes based on
+    the computed scale factor to ensure readability across different figure sizes.
+
+    :param fig: The matplotlib figure to apply styling to.
+    :type fig: matplotlib.figure.Figure
+
+    .. note::
+       Font sizes are calculated based on the figure's scale factor and applied
+       to all axes in the figure.
+    """
     scale = _compute_scale(fig)
     sizes = {
         "title": int(10 * scale),
@@ -42,6 +74,17 @@ def _apply_responsive_styling(fig):
 
 
 def _attach_resize_listener(fig):
+    """
+    Attach a resize event listener to dynamically update styling on figure resize.
+
+    :param fig: The matplotlib figure to attach the listener to.
+    :type fig: matplotlib.figure.Figure
+
+    .. note::
+       The listener automatically calls :func:`_apply_responsive_styling` whenever
+       the figure is resized, ensuring consistent appearance across different window sizes.
+    """
+
     def _on_resize(event):
         _apply_responsive_styling(event.canvas.figure)
 
@@ -65,22 +108,44 @@ def _plot_values(
     corridor=None,
 ):
     """
-    Function to plot x-values against y-values.
-    The y-values can either be one list or a dataframe of multiple columns.
-    Each column will be displayed as a new curve.
+    Plot x-values against y-values on a given matplotlib axis with error markers.
 
-    :param x_values: values for the x-axis
+    This function creates line plots for flight data metrics, with support for
+    multiple data series, phase markers, corridors, and error highlighting.
+
+    :param ax: The matplotlib axis to plot on.
+    :type ax: matplotlib.axes.Axes
+    :param flight_data: Complete flight data DataFrame for error lookups.
+    :type flight_data: pd.DataFrame
+    :param x_values: Values for the x-axis (time or distance).
     :type x_values: pd.DataFrame
-    :param y_values: values for the y-axis
-    :type y_values: pd.DataFrame
-    :param title: title of the plot
+    :param y_values: Values for the y-axis. Can be a single Series or DataFrame
+                    with multiple columns (each column becomes a separate curve).
+    :type y_values: pd.DataFrame or pd.Series
+    :param title: Title for the plot.
     :type title: str
-    :param x_label: label for the x-axis
+    :param x_label: Label for the x-axis.
     :type x_label: str
-    :param y_label: label for the y-axis
+    :param y_label: Label for the y-axis.
     :type y_label: str
-    :param plot_names: parameter to rename plots via a dictionary, defaults to None
+    :param total_flight_errors: Dictionary mapping controller axes to lists of
+                               error timestamps.
+    :type total_flight_errors: dict
+    :param x_axis_type: Type of x-axis data ('SimTime' or 'COG Pos.x [m]').
+    :type x_axis_type: str
+    :param plot_names: Optional dictionary to rename plot labels, defaults to None.
     :type plot_names: dict, optional
+    :param phases: List of phase timestamps to mark with vertical lines, defaults to [].
+    :type phases: list, optional
+    :param corridor: Name of column to use for corridor bounds, defaults to None.
+    :type corridor: str, optional
+    :return: List of vertical line artists marking phase boundaries.
+    :rtype: list
+
+    .. note::
+       Flight errors are marked with red scatter points on the corresponding plots.
+       The error_assignment dictionary maps data columns to their corresponding
+       controller inputs.
     """
 
     mpl.rcParams["path.simplify"] = True
@@ -167,15 +232,33 @@ def _plot_values(
 
 def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
     """
-    Creates a matplotlib figure with multiple subplots based on the provided data.
-    Parameters:
-    data_frame (pd.DataFrame): The data frame containing the flight data.
-    phases (list): A list of phase times or positions to be marked on the x-axis.
-    total_flight_errors (dict): A dictionary containing total flight errors for each phase.
-    x_axis_type (str): The type of x-axis to use ('SimTime' or 'COG Pos.x [m]').
-    Returns:
-    tuple: A tuple containing the created figure and a dictionary of vertical lines for each subplot.
+    Create a comprehensive matplotlib figure with multiple subplots for flight data.
+
+    This function generates an 8-subplot figure containing various flight metrics
+    including translational offsets, velocities, angular positions, rotations,
+    controller inputs, tank mass, and angle to docking port.
+
+    :param data_frame: The flight data containing all metrics and measurements.
+    :type data_frame: pd.DataFrame
+    :param phases: List of phase times or positions to mark on the x-axis with
+                  vertical lines.
+    :type phases: list
+    :param total_flight_errors: Dictionary mapping controller axes to lists of
+                               error timestamps for error visualization.
+    :type total_flight_errors: dict
+    :param x_axis_type: Type of x-axis to use - either 'SimTime' for time-based
+                       or 'COG Pos.x [m]' for distance-based plotting.
+    :type x_axis_type: str
+    :return: Tuple containing the created figure and a dictionary mapping each
+            axis to its vertical phase line artists.
+    :rtype: tuple(matplotlib.figure.Figure, dict)
+
+    .. note::
+       The function uses constrained layout for automatic spacing and applies
+       responsive styling that adapts to figure size changes. Phase lines can
+       be toggled on/off in the GUI.
     """
+
     mpl.style.use("fast")
     # Use constrained layout to reduce overlaps
     figure = plt.figure(figsize=(24, 12))
@@ -282,16 +365,27 @@ def create_figure(data_frame, phases, total_flight_errors, x_axis_type):
 
 def create_heatmaps(flight_data: pd.DataFrame, phases: list):
     """
-    Create heatmaps for different flight phases.
-    This function generates a figure with subplots representing different phases of a flight.
-    Each subplot contains scatter plots of the vessel's position and circles representing the
-    approach cone at the start and end of each phase.
-    Parameters:
-    flight_data (pd.DataFrame): DataFrame containing flight data with columns "SimTime",
-                                "Approach Cone", "COG Pos.z [m]", and "COG Pos.y [m]".
-    phases (list): List of phase start times. The last element is the end time of the last phase.
-    Returns:
-    matplotlib.figure.Figure: The generated figure containing the heatmaps.
+    Create heatmaps showing lateral flight path for different flight phases.
+
+    This function generates a 4-subplot figure displaying the vessel's lateral
+    position (y-z plane) during each phase of flight, along with approach cone
+    boundaries at phase start and end points.
+
+    :param flight_data: DataFrame containing flight data with columns 'SimTime',
+                       'Approach Cone', 'COG Pos.z [m]', and 'COG Pos.y [m]'.
+    :type flight_data: pd.DataFrame
+    :param phases: List of phase start times. The last element represents the
+                  end time of the last phase.
+    :type phases: list
+    :return: The generated matplotlib figure containing the heatmaps.
+    :rtype: matplotlib.figure.Figure
+
+    .. note::
+       - Green markers and circles indicate phase start positions
+       - Red markers and circles indicate phase end positions
+       - Grey scatter points show the full trajectory
+       - Approach cone circles show the allowed lateral deviation boundaries
+       - Axes are centered at origin with equal scaling for accurate representation
     """
     mpl.style.use("fast")
     mpl.rcParams["path.simplify"] = True

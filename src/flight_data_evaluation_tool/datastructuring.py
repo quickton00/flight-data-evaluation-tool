@@ -1,3 +1,11 @@
+"""
+Flight data structuring and phase calculation module.
+
+This module provides functions for processing and structuring flight data,
+calculating approach phases, and transforming coordinate systems for flight
+data analysis.
+"""
+
 import math
 import pandas as pd
 import numpy as np
@@ -5,12 +13,24 @@ import numpy as np
 
 def calculate_approach_phases(data_frame: pd.DataFrame) -> list:
     """
-    Function to calculate the timestamps of the different flight phases based on certain criteria's.
+    Calculate the timestamps of different flight phases based on specific criteria.
+
+    This function analyzes the flight data to determine when key flight phases
+    occur, including alignment, approach, final approach, and docking phases.
+    If certain phases cannot be calculated, backup values are generated.
 
     :param data_frame: DataFrame with all parsed values of the flight Log.
     :type data_frame: pd.DataFrame
-    :return: List of timestamps of the different flight phases.
+    :return: List of timestamps marking the start of each flight phase:
+            [checkout_to_alignment, alignment_to_approach, approach_to_final_approach, final_approach_to_docked]
     :rtype: list
+    :raises IndexError: Handled internally; backup values are used when phase calculation fails.
+
+    .. note::
+       If controller input is not found, a backup value using the first timestamp is used.
+       If the vessel is not docked, a backup value using the last timestamp is used.
+       If intermediate phases cannot be calculated, the function calls
+       :func:`_calculate_backup_approach_phases` to generate estimates.
     """
 
     phases = []
@@ -61,15 +81,24 @@ def calculate_approach_phases(data_frame: pd.DataFrame) -> list:
 
 def _calculate_backup_approach_phases(data_frame: pd.DataFrame, phases: list) -> list:
     """
-    Function to calculate backup values for the different flight phases if they can't be calculated correctly.
-    These Backup Values can then be manually adjusted in the programs GUI.
+    Calculate backup values for flight phases when automatic calculation fails.
+
+    This function generates estimated timestamps for flight phases by interpolating
+    between successfully calculated phases. The backup values can be manually
+    adjusted in the program's GUI.
 
     :param data_frame: DataFrame with all parsed values of the flight Log.
     :type data_frame: pd.DataFrame
-    :param phases: List of timestamps of the different flight phases with None where the previous calculation failed.
+    :param phases: List of timestamps for different flight phases, where None indicates
+                  a failed calculation that needs a backup value.
     :type phases: list
-    :return: List of timestamps of the different flight phases with the now calculated backup values.
+    :return: List of timestamps with backup values replacing None entries.
     :rtype: list
+
+    .. note::
+       Backup values are calculated by dividing the time range between successful
+       phases into equal segments. Messages are printed to inform users when
+       backup values are used.
     """
 
     for index in range(len(phases) - 1):
@@ -104,14 +133,23 @@ def _calculate_backup_approach_phases(data_frame: pd.DataFrame, phases: list) ->
 
 def angle_to_docking_port(front, back):
     """
-    Calculate the angle between the direction vector from the back to the front of the spacecraft
-    and the vector from the periscope of the spacecraft to the origin.
-    Parameters:
-    front (array-like): Coordinates of the front of the spacecraft.
-    back (array-like): Coordinates of the back of the spacecraft.
-    Returns:
-    float: The angle in degrees between the direction vector and the vector to the origin.
-           Returns NaN if the direction vector or the vector to the origin cannot be normalized.
+    Calculate the angle between the spacecraft direction and the docking port.
+
+    This function computes the angle between the direction vector of the spacecraft
+    (from back to front) and the vector from the spacecraft's periscope to the origin
+    (docking port location).
+
+    :param front: Coordinates [x, y, z] of the front of the spacecraft.
+    :type front: array-like
+    :param back: Coordinates [x, y, z] of the back of the spacecraft.
+    :type back: array-like
+    :return: Angle in degrees between the direction vector and the vector to the
+            docking port. Returns NaN if vectors cannot be normalized (zero length).
+    :rtype: float
+
+    .. note::
+       The function returns NaN if either the direction vector or the vector to
+       the origin has zero magnitude, preventing division by zero errors.
     """
     # Calculate the direction vector from back to front
     direction_vector = np.array(front) - np.array(back)
@@ -138,23 +176,35 @@ def angle_to_docking_port(front, back):
 
 def structure_data(data, columns):
     """
-    Transforms and structures flight data into a pandas DataFrame with additional calculated values.
-    Args:
-        data (list of dict): The raw flight data to be structured.
-        columns (list of str): The column names for the DataFrame.
-    Returns:
-        pandas.DataFrame: The structured DataFrame with transformed coordinates and additional calculated values.
-    The function performs the following operations:
-    1. Converts the raw data into a pandas DataFrame with specified columns.
-    2. Renames columns to handle naming inconsistencies.
-    3. Transforms the coordinate system from OrbVLCS to IssTPLCS.
-    4. Calculates additional value sets:
-        - Lateral offset and velocity off COG Position from x-Axis.
-        - Ideal approach velocity.
-        - Angle from vessel line of sight to ISS-Port.
-        - Approach cone for plotting.
-        - Maximum allowed rotational angle.
-        - Maximum allowed rotational velocity.
+    Transform and structure raw flight data into an analysis-ready DataFrame.
+
+    This function performs comprehensive data transformation including coordinate
+    system conversion, additional metric calculations, and data preparation for
+    flight analysis and visualization.
+
+    :param data: Raw flight data as a list of lists or array-like structure.
+    :type data: list of dict or array-like
+    :param columns: Column names for the DataFrame corresponding to the data values.
+    :type columns: list of str
+    :return: Structured DataFrame with transformed coordinates and calculated metrics.
+    :rtype: pandas.DataFrame
+
+    The function performs the following transformations:
+
+    1. **Coordinate System Transformation**: Converts from OrbVLCS to IssTPLCS
+       coordinate system with appropriate axis swaps and sign inversions.
+
+    2. **Additional Calculated Metrics**:
+       - Lateral offset and velocity from the x-axis center of gravity (COG)
+       - Ideal approach velocity based on distance from the docking port
+       - Angle from vessel line of sight to ISS docking port
+       - Approach cone boundaries for constraint visualization
+       - Maximum allowed rotational angle during final approach
+       - Maximum allowed rotational velocity during final approach
+
+    .. note::
+       The function handles a known naming bug in the logger by renaming
+       'Rot. Rate.Z [deg/s]' to 'Rot. Rate.z [deg/s]'.
     """
     data_frame = pd.DataFrame(data, columns=columns)
 

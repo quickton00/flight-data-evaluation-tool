@@ -1,3 +1,11 @@
+"""
+Main GUI application module for the Flight Data Evaluation Tool.
+
+This module provides the primary graphical user interface for loading, visualizing,
+and evaluating flight log data. It includes the main application window with file
+management, flight selection, and evaluation capabilities.
+"""
+
 import customtkinter
 from tkinter import filedialog, messagebox
 import hashlib
@@ -26,23 +34,33 @@ except ImportError:
 
 class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
     """
-    A scrollable frame containing checkboxes for each flight log.
+    A scrollable frame containing checkboxes for managing flight log files.
+
+    This custom widget provides a scrollable list of checkboxes, where each checkbox
+    represents a flight log file. It supports adding, removing, and tracking the
+    selection state of flight logs, as well as visual indicators for analysis status.
 
     :param master: The parent widget.
     :type master: tkinter.Widget
-    :param path_list: A list of file paths to be added as checkboxes, defaults to None
+    :param path_list: Optional list of file paths to initialize as checkboxes, defaults to None.
     :type path_list: list, optional
-    :param command: The command to be executed when a checkbox is clicked, defaults to None
-    :type command: function, optional
-    :param kwargs: Additional arguments to be passed to the CTkScrollableFrame.
+    :param command: Optional callback function executed when a checkbox is clicked, defaults to None.
+    :type command: callable, optional
+    :param kwargs: Additional arguments passed to CTkScrollableFrame.
     :type kwargs: dict
-    :method add_log: Adds a new checkbox for the provided file path.
-    :param path: The path of the file to be added.
-    :type path: str
-    :method remove_all_logs: Removes all checkboxes from the frame.
-    :method get_checked_items: Returns a list of file paths for checked items.
-    :return: A list of file paths for the checked checkboxes.
-    :rtype: list
+
+    :ivar NEW_COLOR: Color hex code for newly added items (#00ab41 - green).
+    :vartype NEW_COLOR: str
+    :ivar ANALYZED_COLOR: Color hex code for analyzed items (theme default).
+    :vartype ANALYZED_COLOR: str
+    :ivar command: Callback function for checkbox events.
+    :vartype command: callable
+    :ivar checkbox_dict: Dictionary mapping checkbox widgets to their file paths.
+    :vartype checkbox_dict: dict
+
+    .. note::
+       Newly added logs are displayed in green to distinguish them from previously
+       analyzed logs, which revert to the default theme color.
     """
 
     NEW_COLOR = "#00ab41"
@@ -99,6 +117,16 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
 
     # mark selected/processed files as analyzed (green)
     def mark_analyzed(self, paths):
+        """
+        Mark specified flight logs as analyzed by changing their text color.
+
+        This method updates the visual appearance of checkboxes to indicate which
+        files have been analyzed. Analyzed files revert to the default theme color,
+        while unanalyzed files retain their new/green color.
+
+        :param paths: List of file paths that have been analyzed.
+        :type paths: list of str
+        """
         path_set = set(paths)
         for cb, p in self.checkbox_dict.items():
             if p in path_set:
@@ -109,27 +137,40 @@ class ScrollableCheckBoxFrame(customtkinter.CTkScrollableFrame):
 
 class App(customtkinter.CTk):
     """
-    A GUI application for evaluating flight data logs using customtkinter.
-    Attributes:
-        preconfigured_phases (dict): Stores phases that were manually modified or previously calculated.
-        file_button (customtkinter.CTkButton): Button to add flight log files.
-        delete_files_button (customtkinter.CTkButton): Button to remove all flight log files.
-        scrollable_checkbox_frame (ScrollableCheckBoxFrame): Frame containing checkboxes for each flight log file.
-        evaluate_button (customtkinter.CTkButton): Button to evaluate the selected flight logs.
-        option_menu (customtkinter.CTkOptionMenu): Option menu to select the x-axis for the plots.
-        execution_info (customtkinter.CTkLabel): Label to display execution information.
-        toplevel_window (PlotWindow or None): Window to display the plots of the evaluated flight logs.
-        session_identifier (str): Identifier for the current session.
-        data_frame (pd.DataFrame): DataFrame containing structured flight log data.
-        results (pd.DataFrame): DataFrame template created from YAML configuration.
-    Methods:
-        __init__(): Initializes the GUI application.
-        add_files(): Opens a file dialog to select flight log files and adds them to the checkbox frame.
-        remove_all_files(): Removes all flight log files from the checkbox frame.
-        evaluate_button_event(): Evaluates the selected flight logs and displays the results in a new window.
-        on_closing(): Handles the closing event of the application.
-        _parse_logs(flight_logs): Parses the selected flight log files and returns the data and columns.
-        redirect_stdout_to_label(): Context manager to redirect stdout to the execution_info label.
+    Main GUI application window for the Flight Data Evaluation Tool.
+
+    This is the primary application class that provides a graphical interface for
+    loading flight log files, selecting flights for evaluation, and launching
+    visualization and analysis windows. It manages flight sessions, phase calculations,
+    and coordinates between different GUI components.
+
+    :ivar preconfigured_phases: Dictionary storing manually modified or previously
+                               calculated phase timestamps, keyed by session identifier.
+    :vartype preconfigured_phases: dict
+    :ivar file_button: Button widget for adding flight log files.
+    :vartype file_button: customtkinter.CTkButton
+    :ivar delete_files_button: Button widget for removing all loaded flights.
+    :vartype delete_files_button: customtkinter.CTkButton
+    :ivar scrollable_checkbox_frame: Scrollable frame containing checkboxes for each flight log.
+    :vartype scrollable_checkbox_frame: ScrollableCheckBoxFrame
+    :ivar evaluate_button: Button widget to trigger flight evaluation.
+    :vartype evaluate_button: customtkinter.CTkButton
+    :ivar option_menu: Dropdown menu for selecting plot x-axis type (time or distance).
+    :vartype option_menu: customtkinter.CTkOptionMenu
+    :ivar execution_info: Label widget for displaying execution status messages.
+    :vartype execution_info: customtkinter.CTkLabel
+    :ivar toplevel_window: Reference to the currently open PlotWindow, if any.
+    :vartype toplevel_window: PlotWindow or None
+    :ivar session_identifier: Identifier string for the current flight session.
+    :vartype session_identifier: str
+    :ivar data_frame: DataFrame containing structured flight data for the current session.
+    :vartype data_frame: pd.DataFrame
+    :ivar results: DataFrame template for storing evaluation results.
+    :vartype results: pd.DataFrame
+
+    .. note::
+       The application validates that all selected logs belong to the same session
+       and that the session is complete (all sequential logs from 0000 to XXXX are present).
     """
 
     def __init__(self):

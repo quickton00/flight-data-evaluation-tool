@@ -1,3 +1,11 @@
+"""
+Helper functions for thesis-related analysis and visualization.
+
+This module provides utility functions used for academic research and thesis
+writing, including MCDA weighting method comparison and ideal distribution
+visualization for documentation purposes.
+"""
+
 # Helper methods to write the master's thesis
 
 import openpyxl
@@ -10,8 +18,23 @@ import matplotlib.pyplot as plt
 
 def compare_weighting_methods_and_rank(data, types, filename="weighting_comparison.xlsx"):
     """
-    Compare all weighting methods and create a ranking for all flight metrics.
-    Results are saved to an Excel file.
+    Compare multiple MCDA weighting methods and export results to Excel.
+
+    This function applies eight different Multi-Criteria Decision Analysis (MCDA)
+    weighting methods to flight data and exports the resulting weights for comparison.
+    Useful for research and validating the choice of weighting method.
+
+    :param data: DataFrame containing flight metrics for all flights.
+    :type data: pandas.DataFrame
+    :param types: Array indicating the optimization direction for each metric
+                 (1 for minimization, -1 for maximization).
+    :type types: numpy.ndarray
+    :param filename: Output Excel filename, defaults to 'weighting_comparison.xlsx'.
+    :type filename: str, optional
+
+    .. note::
+       Results are exported to an Excel file with a single 'Weights' sheet containing
+       all methods' weights side-by-side for easy comparison.
     """
 
     weighting_methods_set = [
@@ -48,19 +71,25 @@ def compare_weighting_methods_and_rank(data, types, filename="weighting_comparis
 
 def create_ideal_distribution_image(filename="normal_distribution_tiers.png", output_dir="temp"):
     """
-    Creates and saves an ideal normal distribution with tier borders.
+    Create and save an ideal normal distribution visualization with performance tiers.
 
-    Parameters:
-    -----------
-    filename : str
-        Name of the output file
-    output_dir : str
-        Directory where the image will be saved
+    This function generates a visualization of an ideal normal distribution with
+    tier boundaries marked at ±1σ and ±2σ, color-coded by performance level.
+    Useful for documentation and explaining the grading system.
 
-    Returns:
-    --------
-    str
-        Path to the saved image
+    :param filename: Output image filename, defaults to 'normal_distribution_tiers.png'.
+    :type filename: str, optional
+    :param output_dir: Directory to save the image, defaults to 'temp'.
+    :type output_dir: str, optional
+    :return: Full path to the saved image file.
+    :rtype: str
+
+    The visualization includes:
+
+    - Standard normal distribution curve (mean=0, std=1)
+    - Tier boundaries
+    - Color-coded regions for each performance tier
+    - Annotated tier names and boundary labels
     """
     fig, ax = plt.subplots(figsize=(8, 5))
 

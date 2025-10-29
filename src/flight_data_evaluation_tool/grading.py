@@ -1,3 +1,13 @@
+"""
+Flight performance grading and statistical analysis module.
+
+This module provides comprehensive functionality for grading flight performance
+through statistical analysis, data normalization, and multi-criteria decision
+analysis (MCDA). It includes methods for checking data distribution normality,
+handling zero-inflated data, applying power and quantile transformations, and
+calculating performance tiers based on historical flight data.
+"""
+
 import pandas as pd
 import numpy as np
 import json
@@ -16,7 +26,25 @@ except ImportError:
 
 
 def is_normal(data, alpha=0.05):
-    """Check normality using Shapiro-Wilk, D’Agostino’s K^2, and Anderson-Darling tests"""
+    """
+    Check if data follows a normal distribution using multiple statistical tests.
+
+    This function employs three different normality tests: Shapiro-Wilk,
+    D'Agostino's K-squared, and Anderson-Darling. Data is considered normal
+    if any of these tests fail to reject the null hypothesis of normality.
+
+    :param data: The data to test for normality.
+    :type data: array-like
+    :param alpha: Significance level for hypothesis testing, defaults to 0.05.
+    :type alpha: float, optional
+    :return: True if data appears to be normally distributed, False otherwise.
+    :rtype: bool
+
+    .. note::
+       The function uses a logical OR across all three tests, providing a more
+       lenient assessment of normality. Data is considered normal if ANY test
+       suggests normality.
+    """
     _, p1 = shapiro(data)  # Shapiro-Wilk test
     _, p2 = normaltest(data)  # D’Agostino’s K^2 test
     res = anderson(data)  # Anderson-Darling test
@@ -26,6 +54,20 @@ def is_normal(data, alpha=0.05):
 
 
 def is_zero_inflated(data, alpha=0.05):
+    """
+    Test if data exhibits zero-inflation using the Jan van den Broek test.
+
+    :param data: The data to test for zero-inflation.
+    :type data: array-like
+    :param alpha: Significance level for the hypothesis test, defaults to 0.05.
+    :type alpha: float, optional
+    :return: True if the data is zero-inflated, False otherwise.
+    :rtype: bool
+
+    .. note::
+       If all values in the data are zero, the function returns True immediately.
+       The test uses a chi-square distribution with 1 degree of freedom.
+    """
     mean = data.mean()
 
     # check for zero inflation with Jan van der Broek test
@@ -53,12 +95,41 @@ def is_zero_inflated(data, alpha=0.05):
 
 
 def is_count_metric(data):
-    """Check if the data is a count metric (non-negative integers)"""
+    """
+    Check if data represents a count metric (non-negative integers).
+
+    :param data: The data to check.
+    :type data: array-like
+    :return: True if the data is a count metric, False otherwise.
+    :rtype: bool
+    """
     return np.issubdtype(data.dtype, np.integer) and (data >= 0).all() and (data == data.astype(int)).all()
 
 
 def transform_data(data, transformer_type, method="yeo-johnson"):
-    """Transform data using PowerTransformer"""
+    """
+    Transform data using power or quantile transformation for normalization.
+
+    This function applies either a power transformation (Box-Cox or Yeo-Johnson)
+    or quantile transformation to make the data more normally distributed.
+
+    :param data: The data to transform.
+    :type data: pandas.Series or array-like
+    :param transformer_type: Type of transformation - either 'power' or 'quantile'.
+    :type transformer_type: str
+    :param method: For power transformation, either 'box-cox' or 'yeo-johnson',
+                  defaults to 'yeo-johnson'.
+    :type method: str, optional
+    :return: Tuple containing the transformed data as pandas Series and the fitted
+            transformer object.
+    :rtype: tuple(pandas.Series, object)
+    :raises ValueError: If transformer_type is not 'power' or 'quantile'.
+
+    .. note::
+       - Box-Cox transformation requires all positive values
+       - Yeo-Johnson transformation works with any real values
+       - Quantile transformation uses min(100, n_samples) quantiles to avoid warnings
+    """
     if transformer_type == "power":
         pt = PowerTransformer(method=method)
         return pd.Series(pt.fit_transform(data.values.reshape(-1, 1)).flatten(), index=data.index), pt
@@ -72,6 +143,35 @@ def transform_data(data, transformer_type, method="yeo-johnson"):
 
 
 def tier_metric(raw_metric, alpha=0.05):
+    """
+    Classify a metric's distribution and apply appropriate transformation if needed.
+
+    This function analyzes a metric to determine its distribution type (normal,
+    zero-inflated, count-based, or non-normal) and applies transformations to
+    achieve normality when possible. It handles outliers by filtering values
+    beyond 3 standard deviations.
+
+    :param raw_metric: The raw metric data to classify and potentially transform.
+    :type raw_metric: pandas.Series or array-like
+    :param alpha: Significance level for statistical tests, defaults to 0.05.
+    :type alpha: float, optional
+    :return: Tuple containing:
+            - distribution_type (str): Type of distribution ('normal', 'zero-inflated',
+              'count-non-normal', or 'non-normal')
+            - metric (pandas.Series): Cleaned or original metric data
+            - transformer (object or None): Fitted transformer if transformation was applied
+            - zero_inflated (bool): Flag indicating if data is zero-inflated
+    :rtype: tuple
+
+    .. note::
+       The function attempts transformations in this order:
+       1. Check for zero-inflation and count metrics
+       2. Check for natural normality
+       3. Try Box-Cox transformation (if all values > 0)
+       4. Try Yeo-Johnson transformation
+       5. Try quantile transformation
+       6. Fall back to non-normal classification
+    """
     mean = raw_metric.mean()
     std = raw_metric.std()
 
@@ -109,7 +209,22 @@ def tier_metric(raw_metric, alpha=0.05):
 
 
 def _resource_path(*relative_parts):
-    """Return absolute path for bundled (PyInstaller) and dev runs."""
+    """
+    Return absolute path for both PyInstaller bundles and development environments.
+
+    This helper function handles path resolution in both development and
+    production (PyInstaller) environments by detecting the execution context
+    and using the appropriate base directory.
+
+    :param relative_parts: Path components to join to the base directory.
+    :type relative_parts: tuple of str
+    :return: Absolute path combining base directory with relative path components.
+    :rtype: str
+
+    .. note::
+       When running as a PyInstaller bundle, uses sys._MEIPASS as the base directory.
+       In development, uses the directory containing grading.py.
+    """
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         base_dir = sys._MEIPASS
     else:
@@ -119,6 +234,40 @@ def _resource_path(*relative_parts):
 
 
 def tier_data(test_row, phase):
+    """
+    Tier a single flight's performance metrics against historical database.
+
+    This function loads the appropriate flight database, performs statistical
+    analysis on each metric, and assigns performance tiers (Excellent, Good,
+    Normal, Poor, Very Poor) based on how the test flight compares to historical
+    performance data.
+
+    :param test_row: pandas Series or dict containing the flight's metric values
+                    to be evaluated. Must include 'Scenario' key.
+    :type test_row: pandas.Series or dict
+    :param phase: The flight phase to evaluate. Must be one of: 'Alignment Phase',
+                 'Approach Phase', 'Final Approach Phase', or 'Total Flight'.
+    :type phase: str
+    :return: Tuple containing:
+            - tiered_data (dict): Dictionary with tier names as keys and lists of
+              metric dictionaries as values. Each metric dict contains value, mean,
+              std, type, percentile, and borders.
+            - metrics (dict): Dictionary mapping metric names to their cleaned data series.
+            - required_database (pandas.DataFrame): The filtered database used for
+              comparison (excluding optional columns).
+    :rtype: tuple(dict, dict, pandas.DataFrame)
+    :raises FileNotFoundError: If the database file for the scenario doesn't exist.
+
+    The tier assignment is based on:
+
+    - **Normal distributions**: Uses mean ± n*std boundaries (n = 1, 2)
+    - **Non-normal distributions**: Uses percentile boundaries (2.3%, 15.9%, 84.1%, 97.7%)
+    - **Zero-inflated**: Treated as non-normal with percentile boundaries
+
+    .. note::
+       Metrics marked as 'optional' in the results template are placed in the
+       'Not Tierable' category and excluded from weight calculations.
+    """
     phase_filter = {
         "Alignment Phase": "Appr|FA|Total|Dock",
         "Approach Phase": "Align|FA|Total|Dock",
@@ -263,6 +412,24 @@ def tier_data(test_row, phase):
 
 
 def calculate_phase_weights(data):
+    """
+    Calculate importance weights for flight metrics using Gini weighting method.
+
+    This function computes MCDA (Multi-Criteria Decision Analysis) weights that
+    represent the relative importance of each metric in performance evaluation.
+    Constant columns (no variation) receive zero weight.
+
+    :param data: DataFrame containing flight metrics for weight calculation.
+    :type data: pandas.DataFrame
+    :return: pandas Series with metric names as index and their corresponding weights
+            as values. Weights sum to 1.0. Constant columns have weight 0.0.
+    :rtype: pandas.Series
+
+    .. note::
+       The Gini weighting method from the crispyn library is used, which assigns
+       higher weights to metrics with greater variability and discriminatory power.
+       Only columns with more than one unique value receive non-zero weights.
+    """
     # Identify non constant columns
     variable_cols = data.columns[data.nunique() > 1]
 
