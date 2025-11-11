@@ -4,7 +4,7 @@ Evaluation results display window module.
 This module provides the GUI window for displaying detailed flight evaluation
 results organized by flight phase and performance tier. It includes interactive
 features like hover-triggered histograms showing metric distributions and
-grade calculation functionality.
+score calculation functionality.
 """
 
 import os
@@ -31,7 +31,7 @@ class EvaluationWindow(customtkinter.CTkToplevel):
     This top-level window organizes evaluation metrics by flight phase (Alignment,
     Approach, Final Approach, Total Flight) and performance tier (Excellent, Good,
     Normal, Poor, Very Poor, Not Tierable). It provides interactive features including
-    hover-triggered probability density functions and grade calculation.
+    hover-triggered probability density functions and score calculation.
 
     :param master: The parent window.
     :type master: tkinter.Widget
@@ -48,17 +48,18 @@ class EvaluationWindow(customtkinter.CTkToplevel):
     :vartype metrics: dict
     :ivar dataobjs: Nested dictionary of data objects for each metric by phase.
     :vartype dataobjs: dict
-    :ivar sub_grade_label: Label displaying individual phase sub-grades.
-    :vartype sub_grade_label: customtkinter.CTkLabel
-    :ivar total_grade_label: Label displaying the final calculated grade.
-    :vartype total_grade_label: customtkinter.CTkLabel
-    :ivar calculate_grade_button: Button to trigger grade calculation (hidden by default).
-    :vartype calculate_grade_button: customtkinter.CTkButton
+    :ivar sub_score_label: Label displaying individual phase sub-scores.
+    :vartype sub_score_label: customtkinter.CTkLabel
+    :ivar total_score_label: Label displaying the final calculated score.
+    :vartype total_score_label: customtkinter.CTkLabel
+    :ivar calculate_score_button: Button to trigger score calculation (hidden by default).
+    :vartype calculate_score_button: customtkinter.CTkButton
 
     .. note::
-       The grade calculation button is hidden by default and can be revealed
+       The score calculation button is hidden by default and can be revealed
        using the Shift+G keyboard shortcut or by unlocking with a password.
     """
+
     def __init__(self, master, evaluated_results, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -183,30 +184,30 @@ class EvaluationWindow(customtkinter.CTkToplevel):
                 for item in temp_tired_data[tab][tier]:
                     self.dataobjs[tab].update(item)
 
-        self.sub_grade_label = customtkinter.CTkLabel(
+        self.sub_score_label = customtkinter.CTkLabel(
             master=self,
             text="",
             fg_color="transparent",
         )
-        self.sub_grade_label.pack(side="left", pady=15, padx=(15, 10))
+        self.sub_score_label.pack(side="left", pady=15, padx=(15, 10))
 
-        self.total_grade_label = customtkinter.CTkLabel(
+        self.total_score_label = customtkinter.CTkLabel(
             master=self,
             text="",
             fg_color="transparent",
         )
-        self.total_grade_label.pack(side="left", pady=15, padx=(15, 10))
+        self.total_score_label.pack(side="left", pady=15, padx=(15, 10))
 
         # Only show grading button with secret keyboard shortcut
         self.bind_all("<Shift-G>", self.show_grading_button)  # Ctrl+Shift+G
 
-        self.calculate_grade_button = customtkinter.CTkButton(
+        self.calculate_score_button = customtkinter.CTkButton(
             master=self,
-            text="Calculate Grade",
-            command=lambda: self.calculate_grade(total_tiered_data, total_metric_database),
+            text="Calculate Flight Score",
+            command=lambda: self.calculate_score(total_tiered_data, total_metric_database),
         )
         if globals.grading_unlocked:
-            self.calculate_grade_button.pack(side="right", pady=15, padx=(15, 10))
+            self.calculate_score_button.pack(side="right", pady=15, padx=(15, 10))
 
         # lift TopLevelWindow in front
         self.lift()
@@ -220,10 +221,10 @@ class EvaluationWindow(customtkinter.CTkToplevel):
 
     def show_grading_button(self, event=None):
         """
-        Show the grade calculation button (keyboard shortcut handler).
+        Show the score calculation button (keyboard shortcut handler).
 
         This method is bound to the Shift+G keyboard shortcut and reveals the
-        grade calculation button if it's not already visible.
+        score calculation button if it's not already visible.
 
         :param event: The keyboard event that triggered this method, defaults to None.
         :type event: tkinter.Event, optional
@@ -231,14 +232,14 @@ class EvaluationWindow(customtkinter.CTkToplevel):
         if globals.grading_unlocked:
             return
 
-        if self.calculate_grade_button.winfo_ismapped():
+        if self.calculate_score_button.winfo_ismapped():
             return
 
-        self.calculate_grade_button.pack(side="right", pady=15, padx=(15, 10))
+        self.calculate_score_button.pack(side="right", pady=15, padx=(15, 10))
 
-    def calculate_grade(self, total_tiered_data, total_metric_database):
+    def calculate_score(self, total_tiered_data, total_metric_database):
         """
-        Calculate the final grade based on the sub-grades and update the label.
+        Calculate the final score based on the sub-scores and update the label.
         """
 
         if not globals.grading_unlocked:
@@ -255,8 +256,8 @@ class EvaluationWindow(customtkinter.CTkToplevel):
             else:
                 globals.grading_unlocked = True
 
-        final_grade = 0
-        sub_grades = {"Alignment Phase": 0, "Approach Phase": 0, "Final Approach Phase": 0}
+        final_score = 0
+        sub_scores = {"Alignment Phase": 0, "Approach Phase": 0, "Final Approach Phase": 0}
         phase_relevance_factors = {"Alignment Phase": 0.2, "Approach Phase": 0.3, "Final Approach Phase": 0.5}
         tier_factors = {
             "Excellent": 1,
@@ -266,31 +267,31 @@ class EvaluationWindow(customtkinter.CTkToplevel):
             "Very Poor": 5,
         }
 
-        for phase in sub_grades:
+        for phase in sub_scores:
             # calculate the weights of the evaluation metrics for this phase
             weights = calculate_phase_weights(total_metric_database[phase])
 
             for evaluation_tier in tier_factors:
                 for item in total_tiered_data[phase][evaluation_tier]:
                     item = list(item.keys())[0]
-                    sub_grades[phase] += weights[item] * tier_factors[evaluation_tier]
+                    sub_scores[phase] += weights[item] * tier_factors[evaluation_tier]
 
-        sub_grades = {phase: round(sub_grade, 2) for phase, sub_grade in sub_grades.items()}
+        sub_scores = {phase: round(sub_score, 2) for phase, sub_score in sub_scores.items()}
 
-        for phase, sub_grade in sub_grades.items():
-            final_grade += sub_grade * phase_relevance_factors[phase]
+        for phase, sub_score in sub_scores.items():
+            final_score += sub_score * phase_relevance_factors[phase]
 
-        # Format sub grades in a user-friendly way
-        sub_grade_text = "Phase Sub Grades: "
-        grade_parts = []
-        for phase, grade in sub_grades.items():
-            grade_parts.append(f"{phase}: {grade}")
+        # Format sub scores in a user-friendly way
+        sub_score_text = "Phase Sub Scores: "
+        score_parts = []
+        for phase, score in sub_scores.items():
+            score_parts.append(f"{phase}: {score}")
 
-        sub_grade_text += " | ".join(grade_parts)
+        sub_score_text += " | ".join(score_parts)
 
-        # Update the labels with the sub and final grades
-        self.sub_grade_label.configure(text=sub_grade_text)
-        self.total_grade_label.configure(text=f"Final Grade: {round(final_grade, 2)}")
+        # Update the labels with the sub and final scores
+        self.sub_score_label.configure(text=sub_score_text)
+        self.total_score_label.configure(text=f"Total Flight Score: {round(final_score, 2)}")
 
     def close_hist_window(self, event=None):
         """
@@ -440,6 +441,7 @@ class HistWindow(customtkinter.CTkToplevel):
        offset to avoid blocking the cursor. It includes color-coded regions for each
        performance tier (Excellent, Good, Normal, Poor, Very Poor).
     """
+
     def __init__(self, master, data, metric, tab, borders, on_close_callback=None):
         super().__init__(master)
         self.master = master
